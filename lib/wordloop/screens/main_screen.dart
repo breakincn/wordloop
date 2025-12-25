@@ -146,20 +146,30 @@ class _MainScreenState extends State<MainScreen> {
     }
 
     final correctPrefix = targetWord.substring(0, correctPrefixLength);
-    final remainingPart = targetWord.substring(correctPrefixLength);
+    final errorChar = correctPrefixLength < targetWord.length ? targetWord.substring(correctPrefixLength, correctPrefixLength + 1) : '';
+    final remainingPart = correctPrefixLength + 1 < targetWord.length ? targetWord.substring(correctPrefixLength + 1) : '';
 
     final baseStyle = Theme.of(context).textTheme.displaySmall;
     return RichText(
       text: TextSpan(
         children: [
           TextSpan(text: correctPrefix, style: baseStyle),
-          TextSpan(
-            text: remainingPart,
-            style: baseStyle?.copyWith(
-              color: Colors.green,
-              fontWeight: FontWeight.bold,
+          if (errorChar.isNotEmpty)
+            TextSpan(
+              text: errorChar,
+              style: baseStyle?.copyWith(
+                color: Colors.red,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
+          if (remainingPart.isNotEmpty)
+            TextSpan(
+              text: remainingPart,
+              style: baseStyle?.copyWith(
+                color: Colors.green,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
         ],
       ),
     );
