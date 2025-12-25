@@ -113,6 +113,45 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  Widget _buildRecallHiddenWordProgress(WordLoopController controller) {
+    final targetWord = controller.currentWord.word;
+    final input = _textController.text.trim();
+    if (input.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final targetLower = targetWord.toLowerCase();
+    final inputLower = input.toLowerCase();
+    if (!targetLower.startsWith(inputLower)) {
+      return const SizedBox.shrink();
+    }
+
+    final baseStyle = Theme.of(context).textTheme.displaySmall;
+    final greenPrefix = targetWord.substring(0, input.length.clamp(0, targetWord.length));
+    final rest = input.length < targetWord.length ? targetWord.substring(input.length) : '';
+
+    return RichText(
+      text: TextSpan(
+        children: [
+          TextSpan(
+            text: greenPrefix,
+            style: baseStyle?.copyWith(
+              color: Colors.green,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          if (rest.isNotEmpty)
+            TextSpan(
+              text: rest,
+              style: baseStyle?.copyWith(
+                color: Colors.transparent,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   void _handleInputAction(String action) {
     if (action == 'clear') {
       _textController.clear();
@@ -149,7 +188,7 @@ class _MainScreenState extends State<MainScreen> {
     final remainingPart = correctPrefixLength + 1 < targetWord.length ? targetWord.substring(correctPrefixLength + 1) : '';
 
     final baseStyle = Theme.of(context).textTheme.displaySmall;
-    final remainingColor = controller.phase == Phase.wrongReview ? Colors.blue : Colors.green;
+    final remainingColor = (controller.phase == Phase.recall || controller.phase == Phase.wrongReview) ? Colors.blue : Colors.green;
     return RichText(
       text: TextSpan(
         children: [
@@ -254,6 +293,15 @@ class _MainScreenState extends State<MainScreen> {
                     targetWord: word.word,
                     style: Theme.of(context).textTheme.displaySmall,
                   ),
+                ),
+                AnimatedOpacity(
+                  duration: const Duration(milliseconds: 120),
+                  opacity: (controller.phase == Phase.recall &&
+                          !controller.wordVisible &&
+                          controller.errorPosition < 0)
+                      ? 1
+                      : 0,
+                  child: _buildRecallHiddenWordProgress(controller),
                 ),
                 AnimatedOpacity(
                   duration: const Duration(milliseconds: 250),
