@@ -126,6 +126,45 @@ class _MainScreenState extends State<MainScreen> {
     _focusNode.requestFocus();
   }
 
+  Widget _buildRecallHiddenWordHint(WordLoopController controller) {
+    final targetWord = controller.currentWord.word;
+    final input = _textController.text.trim();
+    if (input.isEmpty) {
+      return Text(
+        targetWord,
+        style: Theme.of(context).textTheme.displaySmall,
+      );
+    }
+
+    int correctPrefixLength = 0;
+    for (int i = 0; i < input.length && i < targetWord.length; i++) {
+      if (input.toLowerCase()[i] == targetWord.toLowerCase()[i]) {
+        correctPrefixLength++;
+      } else {
+        break;
+      }
+    }
+
+    final correctPrefix = targetWord.substring(0, correctPrefixLength);
+    final remainingPart = targetWord.substring(correctPrefixLength);
+
+    final baseStyle = Theme.of(context).textTheme.displaySmall;
+    return RichText(
+      text: TextSpan(
+        children: [
+          TextSpan(text: correctPrefix, style: baseStyle),
+          TextSpan(
+            text: remainingPart,
+            style: baseStyle?.copyWith(
+              color: Colors.green,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<WordLoopController>();
@@ -154,13 +193,28 @@ class _MainScreenState extends State<MainScreen> {
               value: (controller.completedCount + 1) / controller.total,
             ),
             const SizedBox(height: 16),
-            AnimatedOpacity(
-              duration: const Duration(milliseconds: 250),
-              opacity: controller.wordVisible && controller.phase != Phase.blindTest ? 1 : 0,
-              child: Text(
-                word.word,
-                style: Theme.of(context).textTheme.displaySmall,
-              ),
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                AnimatedOpacity(
+                  duration: const Duration(milliseconds: 250),
+                  opacity: controller.wordVisible && controller.phase != Phase.blindTest ? 1 : 0,
+                  child: Text(
+                    word.word,
+                    style: Theme.of(context).textTheme.displaySmall,
+                  ),
+                ),
+                AnimatedOpacity(
+                  duration: const Duration(milliseconds: 250),
+                  opacity: (controller.phase == Phase.recall &&
+                          !controller.wordVisible &&
+                          controller.errorPosition >= 0 &&
+                          controller.hintVisible)
+                      ? 1
+                      : 0,
+                  child: _buildRecallHiddenWordHint(controller),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             Text(
@@ -177,21 +231,20 @@ class _MainScreenState extends State<MainScreen> {
             if (controller.phase != Phase.preview)
               _buildCustomTextField(controller),
             const SizedBox(height: 12),
-            SizedBox(
-              height: 40,
-              child: Center(
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 500),
-                  opacity: controller.hintVisible ? 1.0 : 0.0,
-                  child: controller.phase == Phase.recall && controller.hintText.isNotEmpty
-                      ? _buildRichHint(controller.hintText, controller.currentWord.word)
-                      : Text(
-                          controller.hintText,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
+            if (controller.phase != Phase.recall)
+              SizedBox(
+                height: 40,
+                child: Center(
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 500),
+                    opacity: controller.hintVisible ? 1.0 : 0.0,
+                    child: Text(
+                      controller.hintText,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
                 ),
               ),
-            ),
             const Spacer(),
             Row(
               children: [
