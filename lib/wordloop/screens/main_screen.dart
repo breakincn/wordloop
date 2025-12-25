@@ -4,6 +4,35 @@ import 'package:provider/provider.dart';
 import '../phase.dart';
 import '../wordloop_controller.dart';
 
+class HighlightTextEditingController extends TextEditingController {
+  int errorPosition = -1;
+  Phase phase = Phase.preview;
+
+  @override
+  TextSpan buildTextSpan({required BuildContext context, TextStyle? style, required bool withComposing}) {
+    final text = value.text;
+    if (phase != Phase.recall || errorPosition < 0 || errorPosition >= text.length) {
+      return TextSpan(style: style, text: text);
+    }
+
+    final before = errorPosition > 0 ? text.substring(0, errorPosition) : '';
+    final wrong = text.substring(errorPosition, errorPosition + 1);
+    final after = errorPosition + 1 < text.length ? text.substring(errorPosition + 1) : '';
+
+    return TextSpan(
+      style: style,
+      children: [
+        if (before.isNotEmpty) TextSpan(text: before),
+        TextSpan(
+          text: wrong,
+          style: (style ?? const TextStyle()).copyWith(color: Colors.red),
+        ),
+        if (after.isNotEmpty) TextSpan(text: after),
+      ],
+    );
+  }
+}
+
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
 
@@ -12,7 +41,7 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  final TextEditingController _textController = TextEditingController();
+  final HighlightTextEditingController _textController = HighlightTextEditingController();
   final FocusNode _focusNode = FocusNode();
 
   @override
@@ -33,6 +62,9 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Widget _buildCustomTextField(WordLoopController controller) {
+    _textController.errorPosition = controller.errorPosition;
+    _textController.phase = controller.phase;
+
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: Theme.of(context).colorScheme.outline),
@@ -53,19 +85,11 @@ class _MainScreenState extends State<MainScreen> {
             TextField(
               controller: _textController,
               focusNode: _focusNode,
-              style: controller.phase == Phase.recall && controller.errorPosition >= 0
-                  ? Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.red,
-                    )
-                  : Theme.of(context).textTheme.titleMedium,
+              style: Theme.of(context).textTheme.titleMedium,
               cursorColor: Theme.of(context).colorScheme.primary,
               decoration: InputDecoration(
                 border: const OutlineInputBorder(),
                 labelText: '输入拼写',
-                errorText: controller.phase == Phase.recall && controller.errorPosition >= 0
-                    ? '错误位置: ${controller.errorPosition + 1}'
-                    : null,
-                errorStyle: const TextStyle(color: Colors.red),
               ),
               onChanged: (value) {
                 if (controller.phase == Phase.recall) {
@@ -88,87 +112,6 @@ class _MainScreenState extends State<MainScreen> {
         ),
       ),
     );
-  }
-
-  Widget _buildErrorHighlight(WordLoopController controller) {
-    final text = _textController.text;
-    final errorPosition = controller.errorPosition;
-    
-    // 添加边界检查
-    if (errorPosition < 0 || errorPosition >= text.length || text.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    
-    return RichText(
-      text: TextSpan(
-        children: [
-          // 正确的字母
-          if (errorPosition > 0)
-            TextSpan(
-              text: text.substring(0, errorPosition),
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Colors.transparent,
-              ),
-            ),
-          // 错误的字母
-          TextSpan(
-            text: text[errorPosition],
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.red,
-              decoration: TextDecoration.underline,
-              decorationColor: Colors.red,
-            ),
-          ),
-          // 剩余的字母（如果有）
-          if (errorPosition + 1 < text.length)
-            TextSpan(
-              text: text.substring(errorPosition + 1),
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Colors.transparent,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRichTextRenderer(Widget child, WordLoopController controller) {
-    final text = _textController.text;
-    final errorPosition = controller.errorPosition;
-    
-    if (controller.phase != Phase.recall || errorPosition < 0 || errorPosition >= text.length) {
-      return child;
-    }
-    
-    return RichText(
-      text: TextSpan(
-        children: [
-          // 正确的字母
-          TextSpan(
-            text: text.substring(0, errorPosition),
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          // 错误的字母
-          TextSpan(
-            text: text[errorPosition],
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.red,
-            ),
-          ),
-          // 剩余的字母（如果有）
-          if (errorPosition + 1 < text.length)
-            TextSpan(
-              text: text.substring(errorPosition + 1),
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-        ],
-      ),
-    );
-  }
-
-  Color _getTextColor(int errorPosition) {
-    // 如果有错误位置，整个文本显示红色
-    return errorPosition >= 0 ? Colors.red : Theme.of(context).textTheme.titleMedium?.color ?? Colors.black;
   }
 
   void _handleInputAction(String action) {
