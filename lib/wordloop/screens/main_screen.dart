@@ -261,6 +261,43 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  Widget _buildBlindTypingProgressText({required String targetWord, required TextStyle? style}) {
+    final input = _textController.text.trim();
+    if (input.isEmpty) {
+      return Text(targetWord, style: style?.copyWith(color: Colors.transparent));
+    }
+
+    final targetLower = targetWord.toLowerCase();
+    final inputLower = input.toLowerCase();
+    final baseStyle = style ?? const TextStyle();
+    final children = <InlineSpan>[];
+
+    for (int i = 0; i < targetWord.length; i++) {
+      if (i >= inputLower.length) {
+        children.add(
+          TextSpan(
+            text: targetWord[i],
+            style: baseStyle.copyWith(color: Colors.transparent),
+          ),
+        );
+        continue;
+      }
+
+      final isCorrect = i < targetLower.length && inputLower[i] == targetLower[i];
+      children.add(
+        TextSpan(
+          text: targetWord[i],
+          style: baseStyle.copyWith(
+            color: isCorrect ? Colors.green : Colors.black26,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
+    }
+
+    return RichText(text: TextSpan(children: children));
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<WordLoopController>();
@@ -297,6 +334,22 @@ class _MainScreenState extends State<MainScreen> {
                   opacity: controller.wordVisible && controller.phase != Phase.blindTest ? 1 : 0,
                   child: _buildWordProgressText(
                     targetWord: word.word,
+                    style: Theme.of(context).textTheme.displaySmall,
+                  ),
+                ),
+                AnimatedOpacity(
+                  duration: const Duration(milliseconds: 250),
+                  opacity: (controller.phase == Phase.blindTest && !controller.blindWordHintVisible) ? 1 : 0,
+                  child: _buildBlindTypingProgressText(
+                    targetWord: word.word,
+                    style: Theme.of(context).textTheme.displaySmall,
+                  ),
+                ),
+                AnimatedOpacity(
+                  duration: const Duration(seconds: 1),
+                  opacity: (controller.phase == Phase.blindTest && controller.blindWordHintVisible) ? 1 : 0,
+                  child: Text(
+                    word.word,
                     style: Theme.of(context).textTheme.displaySmall,
                   ),
                 ),

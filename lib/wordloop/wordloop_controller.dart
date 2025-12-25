@@ -27,10 +27,13 @@ class WordLoopController extends ChangeNotifier {
   Timer? _timer;
   Timer? _hintFadeTimer;
   Timer? _inputActionTimer;
+  Timer? _blindWordHintTimer;
   bool _hintVisible = true;
   Function(String)? _onInputAction;
   int _errorPosition = -1;
   DateTime _lastRealtimeHintSpeakAt = DateTime.fromMillisecondsSinceEpoch(0);
+  int _blindFullWrongStreak = 0;
+  bool _blindWordHintVisible = false;
 
   Phase get phase => _phase;
   int get index => _index;
@@ -39,6 +42,7 @@ class WordLoopController extends ChangeNotifier {
   String get hintText => _hintText;
   bool get hintVisible => _hintVisible;
   int get errorPosition => _errorPosition;
+  bool get blindWordHintVisible => _blindWordHintVisible;
 
   List<Word> get wrongWords => List<Word>.unmodifiable(_wrongWords);
 
@@ -65,6 +69,9 @@ class WordLoopController extends ChangeNotifier {
     _phaseLoopCount = 0;
     _hintText = '';
     _wordVisible = true;
+    _blindFullWrongStreak = 0;
+    _blindWordHintVisible = false;
+    _blindWordHintTimer?.cancel();
     _cancelTimer();
     notifyListeners();
     _speakCurrent();
@@ -76,6 +83,7 @@ class WordLoopController extends ChangeNotifier {
     _cancelTimer();
     _hintFadeTimer?.cancel();
     _inputActionTimer?.cancel();
+    _blindWordHintTimer?.cancel();
     unawaited(_ttsService.dispose());
     super.dispose();
   }
@@ -84,6 +92,9 @@ class WordLoopController extends ChangeNotifier {
     _hintText = '';
     _errorPosition = -1;
     _inputActionTimer?.cancel();
+    _blindFullWrongStreak = 0;
+    _blindWordHintVisible = false;
+    _blindWordHintTimer?.cancel();
 
     if (_phase == Phase.preview) {
       _advanceWithinPhaseOrTransition();
@@ -129,6 +140,11 @@ class WordLoopController extends ChangeNotifier {
 
     final correct = trimmed.toLowerCase() == word.word.toLowerCase();
     if (correct) {
+      if (_phase == Phase.blindTest) {
+        _blindFullWrongStreak = 0;
+        _blindWordHintVisible = false;
+        _blindWordHintTimer?.cancel();
+      }
       if (word.inWrongList) {
         word.inWrongList = false;
         _wrongWords.removeWhere((w) => w.id == word.id);
@@ -146,6 +162,18 @@ class WordLoopController extends ChangeNotifier {
       _addWrong(word);
     }
 
+    if (_phase == Phase.blindTest) {
+      if (trimmed.length == word.word.length) {
+        _blindFullWrongStreak += 1;
+        if (_blindFullWrongStreak >= 4) {
+          _blindFullWrongStreak = 0;
+          _showBlindWordHint();
+        }
+      } else {
+        _blindFullWrongStreak = 0;
+      }
+    }
+
     _hintText = _buildHint(word: word, errorCount: word.errorCount, phase: _phase);
 
     if (_phase == Phase.recall && word.errorCount >= 3) {
@@ -157,6 +185,17 @@ class WordLoopController extends ChangeNotifier {
     }
 
     notifyListeners();
+  }
+
+  void _showBlindWordHint() {
+    _blindWordHintTimer?.cancel();
+    _blindWordHintVisible = true;
+    notifyListeners();
+
+    _blindWordHintTimer = Timer(const Duration(seconds: 2), () {
+      _blindWordHintVisible = false;
+      notifyListeners();
+    });
   }
 
   Future<void> playPronunciation() async {
