@@ -246,7 +246,10 @@ class WordLoopController extends ChangeNotifier {
   }
 
   void _speakCurrent() {
-    if (_phase == Phase.preview || _phase == Phase.recall || _phase == Phase.blindTest) {
+    if (_phase == Phase.preview ||
+        _phase == Phase.recall ||
+        _phase == Phase.blindTest ||
+        _phase == Phase.spellingInput) {
       unawaited(_ttsService.speak(currentWord.word));
     }
   }

@@ -37,7 +37,8 @@ class _MainScreenState extends State<MainScreen> {
     final word = controller.currentWord;
 
     final showMeaning = controller.phase == Phase.blindTest ||
-        controller.phase == Phase.preview;
+        controller.phase == Phase.preview ||
+        controller.phase == Phase.spellingInput;
 
     return Scaffold(
       appBar: AppBar(
