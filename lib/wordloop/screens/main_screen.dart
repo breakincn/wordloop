@@ -87,6 +87,11 @@ class _MainScreenState extends State<MainScreen> {
                 autocorrect: false,
                 enableSuggestions: false,
                 autofillHints: const [],
+              onChanged: (value) {
+                if (controller.phase == Phase.recall) {
+                  controller.checkInputRealtime(value);
+                }
+              },
               onSubmitted: (value) async {
                 await controller.submit(value);
                 _textController.clear();
@@ -101,9 +106,15 @@ class _MainScreenState extends State<MainScreen> {
             SizedBox(
               height: 40,
               child: Center(
-                child: Text(
-                  controller.hintText,
-                  style: Theme.of(context).textTheme.titleMedium,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 500),
+                  opacity: controller.hintVisible ? 1.0 : 0.0,
+                  child: controller.phase == Phase.recall && controller.hintText.isNotEmpty
+                      ? _buildRichHint(controller.hintText, controller.currentWord.word)
+                      : Text(
+                          controller.hintText,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
                 ),
               ),
             ),
@@ -136,6 +147,49 @@ class _MainScreenState extends State<MainScreen> {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildRichHint(String hintText, String targetWord) {
+    final parts = hintText.split(' ');
+    final wordHint = parts[0];
+    final meaning = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+    
+    // 找到用户输入的正确前缀长度
+    final textController = _textController.text.trim();
+    int correctPrefixLength = 0;
+    for (int i = 0; i < textController.length && i < wordHint.length; i++) {
+      if (textController.toLowerCase()[i] == wordHint.toLowerCase()[i]) {
+        correctPrefixLength++;
+      } else {
+        break;
+      }
+    }
+    
+    final correctPrefix = wordHint.substring(0, correctPrefixLength);
+    final remainingPart = wordHint.substring(correctPrefixLength);
+    
+    return RichText(
+      text: TextSpan(
+        children: [
+          TextSpan(
+            text: correctPrefix,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          TextSpan(
+            text: remainingPart,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: Colors.green,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          if (meaning.isNotEmpty)
+            TextSpan(
+              text: ' $meaning',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+        ],
       ),
     );
   }

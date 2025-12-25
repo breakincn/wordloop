@@ -25,12 +25,15 @@ class WordLoopController extends ChangeNotifier {
   int _phaseLoopCount = 0;
 
   Timer? _timer;
+  Timer? _hintFadeTimer;
+  bool _hintVisible = true;
 
   Phase get phase => _phase;
   int get index => _index;
   int get total => _currentList.length;
   bool get wordVisible => _wordVisible;
   String get hintText => _hintText;
+  bool get hintVisible => _hintVisible;
 
   List<Word> get wrongWords => List<Word>.unmodifiable(_wrongWords);
 
@@ -66,6 +69,7 @@ class WordLoopController extends ChangeNotifier {
   @override
   void dispose() {
     _cancelTimer();
+    _hintFadeTimer?.cancel();
     unawaited(_ttsService.dispose());
     super.dispose();
   }
@@ -149,6 +153,62 @@ class WordLoopController extends ChangeNotifier {
 
   Future<void> playPronunciation() async {
     await _ttsService.speak(currentWord.word);
+  }
+
+  void checkInputRealtime(String input) {
+    final trimmed = input.trim();
+    if (trimmed.isEmpty) {
+      _hintText = '';
+      notifyListeners();
+      return;
+    }
+
+    final word = currentWord;
+    final targetWord = word.word.toLowerCase();
+    final userInput = trimmed.toLowerCase();
+    
+    // 检查输入是否是目标单词的前缀
+    if (targetWord.startsWith(userInput)) {
+      // 输入正确，不显示提示
+      _hintText = '';
+    } else {
+      // 输入错误，显示提示
+      _hintText = _buildRealtimeHint(word: word, userInput: trimmed);
+      _scheduleHintFadeOut();
+    }
+    notifyListeners();
+  }
+
+  String _buildRealtimeHint({required Word word, required String userInput}) {
+    final targetWord = word.word;
+    final userInputLower = userInput.toLowerCase();
+    final targetWordLower = targetWord.toLowerCase();
+    
+    // 找到正确输入的最长前缀
+    int correctPrefixLength = 0;
+    for (int i = 0; i < userInput.length && i < targetWord.length; i++) {
+      if (userInputLower[i] == targetWordLower[i]) {
+        correctPrefixLength++;
+      } else {
+        break;
+      }
+    }
+    
+    final correctPrefix = targetWord.substring(0, correctPrefixLength);
+    final remainingPart = targetWord.substring(correctPrefixLength);
+    
+    return '$correctPrefix$remainingPart ${word.meaning}';
+  }
+
+  void _scheduleHintFadeOut() {
+    _hintFadeTimer?.cancel();
+    _hintVisible = true;
+    notifyListeners();
+    
+    _hintFadeTimer = Timer(const Duration(seconds: 2), () {
+      _hintVisible = false;
+      notifyListeners();
+    });
   }
 
   void _addWrong(Word word) {
