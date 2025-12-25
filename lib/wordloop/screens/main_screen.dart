@@ -5,31 +5,30 @@ import '../phase.dart';
 import '../wordloop_controller.dart';
 
 class HighlightTextEditingController extends TextEditingController {
-  int errorPosition = -1;
   Phase phase = Phase.preview;
+  String targetWordLower = '';
 
   @override
   TextSpan buildTextSpan({required BuildContext context, TextStyle? style, required bool withComposing}) {
     final text = value.text;
-    if (phase != Phase.recall || errorPosition < 0 || errorPosition >= text.length) {
+    if (phase != Phase.recall || text.isEmpty || targetWordLower.isEmpty) {
       return TextSpan(style: style, text: text);
     }
 
-    final before = errorPosition > 0 ? text.substring(0, errorPosition) : '';
-    final wrong = text.substring(errorPosition, errorPosition + 1);
-    final after = errorPosition + 1 < text.length ? text.substring(errorPosition + 1) : '';
-
-    return TextSpan(
-      style: style,
-      children: [
-        if (before.isNotEmpty) TextSpan(text: before),
+    final baseStyle = style ?? const TextStyle();
+    final children = <InlineSpan>[];
+    for (int i = 0; i < text.length; i++) {
+      final ch = text[i];
+      final isWrong = i >= targetWordLower.length || ch.toLowerCase() != targetWordLower[i];
+      children.add(
         TextSpan(
-          text: wrong,
-          style: (style ?? const TextStyle()).copyWith(color: Colors.red),
+          text: ch,
+          style: isWrong ? baseStyle.copyWith(color: Colors.red) : null,
         ),
-        if (after.isNotEmpty) TextSpan(text: after),
-      ],
-    );
+      );
+    }
+
+    return TextSpan(style: style, children: children);
   }
 }
 
@@ -62,8 +61,8 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Widget _buildCustomTextField(WordLoopController controller) {
-    _textController.errorPosition = controller.errorPosition;
     _textController.phase = controller.phase;
+    _textController.targetWordLower = controller.currentWord.word.toLowerCase();
 
     return Container(
       decoration: BoxDecoration(

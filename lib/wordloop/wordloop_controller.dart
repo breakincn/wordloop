@@ -30,6 +30,7 @@ class WordLoopController extends ChangeNotifier {
   bool _hintVisible = true;
   Function(String)? _onInputAction;
   int _errorPosition = -1;
+  DateTime _lastRealtimeHintSpeakAt = DateTime.fromMillisecondsSinceEpoch(0);
 
   Phase get phase => _phase;
   int get index => _index;
@@ -191,8 +192,21 @@ class WordLoopController extends ChangeNotifier {
       _hintText = _buildRealtimeHint(word: word, userInput: trimmed);
       _scheduleHintFadeOut();
       _scheduleInputAction(trimmed, word.word);
+      _speakRealtimeHintIfNeeded();
     }
     notifyListeners();
+  }
+
+  void _speakRealtimeHintIfNeeded() {
+    if (_phase != Phase.recall || _wordVisible) {
+      return;
+    }
+    final now = DateTime.now();
+    if (now.difference(_lastRealtimeHintSpeakAt) < const Duration(milliseconds: 600)) {
+      return;
+    }
+    _lastRealtimeHintSpeakAt = now;
+    unawaited(_ttsService.speak(currentWord.word));
   }
 
   int _findErrorPosition(String userInput, String targetWord) {
@@ -234,11 +248,11 @@ class WordLoopController extends ChangeNotifier {
     
     _inputActionTimer = Timer(const Duration(seconds: 1), () {
       if (_onInputAction != null) {
-        if (userInput.length < 4) {
-          // 小于4个字母，清空输入框
+        if (userInput.length < 7) {
+          // 小于7个字母，清空输入框
           _onInputAction!('clear');
         } else {
-          // 大于等于4个字母，回退到上一个正确字母处
+          // 大于等于7个字母，回退到上一个正确字母处
           final correctPrefix = _getCorrectPrefix(userInput, targetWord);
           _onInputAction!(correctPrefix);
         }
