@@ -26,7 +26,9 @@ class WordLoopController extends ChangeNotifier {
 
   Timer? _timer;
   Timer? _hintFadeTimer;
+  Timer? _inputActionTimer;
   bool _hintVisible = true;
+  Function(String)? _onInputAction;
 
   Phase get phase => _phase;
   int get index => _index;
@@ -70,6 +72,7 @@ class WordLoopController extends ChangeNotifier {
   void dispose() {
     _cancelTimer();
     _hintFadeTimer?.cancel();
+    _inputActionTimer?.cancel();
     unawaited(_ttsService.dispose());
     super.dispose();
   }
@@ -155,6 +158,10 @@ class WordLoopController extends ChangeNotifier {
     await _ttsService.speak(currentWord.word);
   }
 
+  void setInputActionCallback(Function(String) callback) {
+    _onInputAction = callback;
+  }
+
   void checkInputRealtime(String input) {
     final trimmed = input.trim();
     if (trimmed.isEmpty) {
@@ -171,10 +178,12 @@ class WordLoopController extends ChangeNotifier {
     if (targetWord.startsWith(userInput)) {
       // 输入正确，不显示提示
       _hintText = '';
+      _inputActionTimer?.cancel();
     } else {
       // 输入错误，显示提示
       _hintText = _buildRealtimeHint(word: word, userInput: trimmed);
       _scheduleHintFadeOut();
+      _scheduleInputAction(trimmed, word.word);
     }
     notifyListeners();
   }
@@ -198,6 +207,39 @@ class WordLoopController extends ChangeNotifier {
     final remainingPart = targetWord.substring(correctPrefixLength);
     
     return '$correctPrefix$remainingPart ${word.meaning}';
+  }
+
+  void _scheduleInputAction(String userInput, String targetWord) {
+    _inputActionTimer?.cancel();
+    
+    _inputActionTimer = Timer(const Duration(seconds: 1), () {
+      if (_onInputAction != null) {
+        if (userInput.length < 5) {
+          // 小于5个字母，清空输入框
+          _onInputAction!('clear');
+        } else {
+          // 大于等于5个字母，回退到上一个正确字母处
+          final correctPrefix = _getCorrectPrefix(userInput, targetWord);
+          _onInputAction!(correctPrefix);
+        }
+      }
+    });
+  }
+
+  String _getCorrectPrefix(String userInput, String targetWord) {
+    final userInputLower = userInput.toLowerCase();
+    final targetWordLower = targetWord.toLowerCase();
+    
+    int correctLength = 0;
+    for (int i = 0; i < userInput.length && i < targetWord.length; i++) {
+      if (userInputLower[i] == targetWordLower[i]) {
+        correctLength++;
+      } else {
+        break;
+      }
+    }
+    
+    return targetWord.substring(0, correctLength);
   }
 
   void _scheduleHintFadeOut() {

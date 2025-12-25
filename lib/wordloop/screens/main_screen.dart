@@ -20,6 +20,7 @@ class _MainScreenState extends State<MainScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<WordLoopController>().start();
+      context.read<WordLoopController>().setInputActionCallback(_handleInputAction);
       _focusNode.requestFocus();
     });
   }
@@ -29,6 +30,18 @@ class _MainScreenState extends State<MainScreen> {
     _textController.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  void _handleInputAction(String action) {
+    if (action == 'clear') {
+      _textController.clear();
+    } else {
+      _textController.text = action;
+      _textController.selection = TextSelection.fromPosition(
+        TextPosition(offset: action.length),
+      );
+    }
+    _focusNode.requestFocus();
   }
 
   @override
