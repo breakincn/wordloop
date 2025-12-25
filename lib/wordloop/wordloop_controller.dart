@@ -202,7 +202,7 @@ class WordLoopController extends ChangeNotifier {
       return;
     }
     final now = DateTime.now();
-    if (now.difference(_lastRealtimeHintSpeakAt) < const Duration(milliseconds: 600)) {
+    if (now.difference(_lastRealtimeHintSpeakAt) < const Duration(seconds: 2)) {
       return;
     }
     _lastRealtimeHintSpeakAt = now;
