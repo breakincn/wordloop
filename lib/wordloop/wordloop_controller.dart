@@ -264,6 +264,18 @@ class WordLoopController extends ChangeNotifier {
     final root2 = word.word.length >= 2 ? word.word.substring(0, 2) : word.word;
     final root4 = word.word.length >= 4 ? word.word.substring(0, 4) : word.word;
 
+    if (phase == Phase.recall) {
+      if (errorCount == 1) {
+        return '${root2}___  ${word.meaning}';
+      }
+
+      if (errorCount == 2) {
+        return '${root4}___  ${word.meaning}';
+      }
+
+      return word.word;
+    }
+
     if (errorCount == 1) {
       return '${root2}___  ${word.phonetic}';
     }
