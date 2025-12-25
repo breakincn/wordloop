@@ -256,7 +256,7 @@ class WordLoopController extends ChangeNotifier {
 
   static String _buildHint({required Word word, required int errorCount, required Phase phase}) {
     if (phase == Phase.spellingInput) {
-      return '错误';
+      return word.word;
     }
 
     if (errorCount <= 0) return '';

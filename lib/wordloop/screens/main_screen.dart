@@ -82,8 +82,11 @@ class _MainScreenState extends State<MainScreen> {
             if (controller.phase != Phase.preview)
               TextField(
                 controller: _textController,
-              focusNode: _focusNode,
-              textInputAction: TextInputAction.done,
+                focusNode: _focusNode,
+                textInputAction: TextInputAction.done,
+                autocorrect: false,
+                enableSuggestions: false,
+                autofillHints: const [],
               onSubmitted: (value) async {
                 await controller.submit(value);
                 _textController.clear();
