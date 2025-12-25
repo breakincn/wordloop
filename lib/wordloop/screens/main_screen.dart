@@ -36,7 +36,8 @@ class _MainScreenState extends State<MainScreen> {
     final controller = context.watch<WordLoopController>();
     final word = controller.currentWord;
 
-    final showMeaning = controller.phase == Phase.blindTest;
+    final showMeaning = controller.phase == Phase.blindTest ||
+        controller.phase == Phase.preview;
 
     return Scaffold(
       appBar: AppBar(
@@ -76,8 +77,9 @@ class _MainScreenState extends State<MainScreen> {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             const SizedBox(height: 12),
-            TextField(
-              controller: _textController,
+            if (controller.phase != Phase.preview)
+              TextField(
+                controller: _textController,
               focusNode: _focusNode,
               textInputAction: TextInputAction.done,
               onSubmitted: (value) async {
