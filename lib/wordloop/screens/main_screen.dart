@@ -32,6 +32,145 @@ class _MainScreenState extends State<MainScreen> {
     super.dispose();
   }
 
+  Widget _buildCustomTextField(WordLoopController controller) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Theme.of(context).colorScheme.outline),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '输入拼写',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _textController,
+              focusNode: _focusNode,
+              style: controller.phase == Phase.recall && controller.errorPosition >= 0
+                  ? Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Colors.red,
+                    )
+                  : Theme.of(context).textTheme.titleMedium,
+              cursorColor: Theme.of(context).colorScheme.primary,
+              decoration: InputDecoration(
+                border: const OutlineInputBorder(),
+                labelText: '输入拼写',
+                errorText: controller.phase == Phase.recall && controller.errorPosition >= 0
+                    ? '错误位置: ${controller.errorPosition + 1}'
+                    : null,
+                errorStyle: const TextStyle(color: Colors.red),
+              ),
+              onChanged: (value) {
+                if (controller.phase == Phase.recall) {
+                  controller.checkInputRealtime(value);
+                }
+                setState(() {});
+              },
+              onSubmitted: (value) async {
+                await controller.submit(value);
+                _textController.clear();
+                _focusNode.requestFocus();
+              },
+              textCapitalization: TextCapitalization.none,
+              keyboardType: TextInputType.text,
+              textInputAction: TextInputAction.done,
+              autocorrect: false,
+              enableSuggestions: false,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorHighlight(WordLoopController controller) {
+    final text = _textController.text;
+    final errorPosition = controller.errorPosition;
+    
+    // 添加边界检查
+    if (errorPosition < 0 || errorPosition >= text.length || text.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    
+    return RichText(
+      text: TextSpan(
+        children: [
+          // 正确的字母
+          if (errorPosition > 0)
+            TextSpan(
+              text: text.substring(0, errorPosition),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: Colors.transparent,
+              ),
+            ),
+          // 错误的字母
+          TextSpan(
+            text: text[errorPosition],
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: Colors.red,
+              decoration: TextDecoration.underline,
+              decorationColor: Colors.red,
+            ),
+          ),
+          // 剩余的字母（如果有）
+          if (errorPosition + 1 < text.length)
+            TextSpan(
+              text: text.substring(errorPosition + 1),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: Colors.transparent,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRichTextRenderer(Widget child, WordLoopController controller) {
+    final text = _textController.text;
+    final errorPosition = controller.errorPosition;
+    
+    if (controller.phase != Phase.recall || errorPosition < 0 || errorPosition >= text.length) {
+      return child;
+    }
+    
+    return RichText(
+      text: TextSpan(
+        children: [
+          // 正确的字母
+          TextSpan(
+            text: text.substring(0, errorPosition),
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          // 错误的字母
+          TextSpan(
+            text: text[errorPosition],
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: Colors.red,
+            ),
+          ),
+          // 剩余的字母（如果有）
+          if (errorPosition + 1 < text.length)
+            TextSpan(
+              text: text.substring(errorPosition + 1),
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Color _getTextColor(int errorPosition) {
+    // 如果有错误位置，整个文本显示红色
+    return errorPosition >= 0 ? Colors.red : Theme.of(context).textTheme.titleMedium?.color ?? Colors.black;
+  }
+
   void _handleInputAction(String action) {
     if (action == 'clear') {
       _textController.clear();
@@ -93,28 +232,7 @@ class _MainScreenState extends State<MainScreen> {
               ),
             const SizedBox(height: 12),
             if (controller.phase != Phase.preview)
-              TextField(
-                controller: _textController,
-                focusNode: _focusNode,
-                textInputAction: TextInputAction.done,
-                autocorrect: false,
-                enableSuggestions: false,
-                autofillHints: const [],
-              onChanged: (value) {
-                if (controller.phase == Phase.recall) {
-                  controller.checkInputRealtime(value);
-                }
-              },
-              onSubmitted: (value) async {
-                await controller.submit(value);
-                _textController.clear();
-                _focusNode.requestFocus();
-              },
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                labelText: '输入拼写',
-              ),
-            ),
+              _buildCustomTextField(controller),
             const SizedBox(height: 12),
             SizedBox(
               height: 40,

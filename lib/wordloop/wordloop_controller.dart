@@ -29,6 +29,7 @@ class WordLoopController extends ChangeNotifier {
   Timer? _inputActionTimer;
   bool _hintVisible = true;
   Function(String)? _onInputAction;
+  int _errorPosition = -1;
 
   Phase get phase => _phase;
   int get index => _index;
@@ -36,6 +37,7 @@ class WordLoopController extends ChangeNotifier {
   bool get wordVisible => _wordVisible;
   String get hintText => _hintText;
   bool get hintVisible => _hintVisible;
+  int get errorPosition => _errorPosition;
 
   List<Word> get wrongWords => List<Word>.unmodifiable(_wrongWords);
 
@@ -79,6 +81,8 @@ class WordLoopController extends ChangeNotifier {
 
   void next() {
     _hintText = '';
+    _errorPosition = -1;
+    _inputActionTimer?.cancel();
 
     if (_phase == Phase.preview) {
       _advanceWithinPhaseOrTransition();
@@ -166,6 +170,7 @@ class WordLoopController extends ChangeNotifier {
     final trimmed = input.trim();
     if (trimmed.isEmpty) {
       _hintText = '';
+      _errorPosition = -1;
       notifyListeners();
       return;
     }
@@ -178,14 +183,29 @@ class WordLoopController extends ChangeNotifier {
     if (targetWord.startsWith(userInput)) {
       // 输入正确，不显示提示
       _hintText = '';
+      _errorPosition = -1;
       _inputActionTimer?.cancel();
     } else {
-      // 输入错误，显示提示
+      // 输入错误，找到错误位置
+      _errorPosition = _findErrorPosition(userInput, targetWord);
       _hintText = _buildRealtimeHint(word: word, userInput: trimmed);
       _scheduleHintFadeOut();
       _scheduleInputAction(trimmed, word.word);
     }
     notifyListeners();
+  }
+
+  int _findErrorPosition(String userInput, String targetWord) {
+    for (int i = 0; i < userInput.length && i < targetWord.length; i++) {
+      if (userInput[i] != targetWord[i]) {
+        return i;
+      }
+    }
+    // 如果前面都匹配，但输入长度超过目标单词长度
+    if (userInput.length > targetWord.length) {
+      return targetWord.length;
+    }
+    return userInput.length - 1; // 默认最后一个字符错误
   }
 
   String _buildRealtimeHint({required Word word, required String userInput}) {
@@ -214,11 +234,11 @@ class WordLoopController extends ChangeNotifier {
     
     _inputActionTimer = Timer(const Duration(seconds: 1), () {
       if (_onInputAction != null) {
-        if (userInput.length < 5) {
-          // 小于5个字母，清空输入框
+        if (userInput.length < 4) {
+          // 小于4个字母，清空输入框
           _onInputAction!('clear');
         } else {
-          // 大于等于5个字母，回退到上一个正确字母处
+          // 大于等于4个字母，回退到上一个正确字母处
           final correctPrefix = _getCorrectPrefix(userInput, targetWord);
           _onInputAction!(correctPrefix);
         }
