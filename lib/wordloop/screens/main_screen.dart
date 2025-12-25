@@ -149,6 +149,7 @@ class _MainScreenState extends State<MainScreen> {
     final remainingPart = correctPrefixLength + 1 < targetWord.length ? targetWord.substring(correctPrefixLength + 1) : '';
 
     final baseStyle = Theme.of(context).textTheme.displaySmall;
+    final remainingColor = controller.phase == Phase.wrongReview ? Colors.blue : Colors.green;
     return RichText(
       text: TextSpan(
         children: [
@@ -165,10 +166,51 @@ class _MainScreenState extends State<MainScreen> {
             TextSpan(
               text: remainingPart,
               style: baseStyle?.copyWith(
-                color: Colors.green,
+                color: remainingColor,
                 fontWeight: FontWeight.bold,
               ),
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWordProgressText({required String targetWord, required TextStyle? style}) {
+    final input = _textController.text.trim();
+    if (input.isEmpty) {
+      return Text(targetWord, style: style);
+    }
+
+    final targetLower = targetWord.toLowerCase();
+    final inputLower = input.toLowerCase();
+
+    int correctPrefixLength = 0;
+    for (int i = 0; i < inputLower.length && i < targetLower.length; i++) {
+      if (inputLower[i] == targetLower[i]) {
+        correctPrefixLength++;
+      } else {
+        break;
+      }
+    }
+
+    if (correctPrefixLength <= 0) {
+      return Text(targetWord, style: style);
+    }
+
+    final prefix = targetWord.substring(0, correctPrefixLength);
+    final rest = targetWord.substring(correctPrefixLength);
+
+    return RichText(
+      text: TextSpan(
+        children: [
+          TextSpan(
+            text: prefix,
+            style: style?.copyWith(
+              color: Colors.green,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          TextSpan(text: rest, style: style),
         ],
       ),
     );
@@ -208,8 +250,8 @@ class _MainScreenState extends State<MainScreen> {
                 AnimatedOpacity(
                   duration: const Duration(milliseconds: 250),
                   opacity: controller.wordVisible && controller.phase != Phase.blindTest ? 1 : 0,
-                  child: Text(
-                    word.word,
+                  child: _buildWordProgressText(
+                    targetWord: word.word,
                     style: Theme.of(context).textTheme.displaySmall,
                   ),
                 ),
@@ -247,10 +289,12 @@ class _MainScreenState extends State<MainScreen> {
                   child: AnimatedOpacity(
                     duration: const Duration(milliseconds: 500),
                     opacity: controller.hintVisible ? 1.0 : 0.0,
-                    child: Text(
-                      controller.hintText,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
+                    child: controller.phase == Phase.wrongReview && controller.hintText.isNotEmpty
+                        ? _buildRichHint(controller.hintText, controller.currentWord.word)
+                        : Text(
+                            controller.hintText,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
                   ),
                 ),
               ),
@@ -305,6 +349,7 @@ class _MainScreenState extends State<MainScreen> {
     
     final correctPrefix = wordHint.substring(0, correctPrefixLength);
     final remainingPart = wordHint.substring(correctPrefixLength);
+    final remainingColor = context.read<WordLoopController>().phase == Phase.wrongReview ? Colors.blue : Colors.green;
     
     return RichText(
       text: TextSpan(
@@ -316,7 +361,7 @@ class _MainScreenState extends State<MainScreen> {
           TextSpan(
             text: remainingPart,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.green,
+              color: remainingColor,
               fontWeight: FontWeight.bold,
             ),
           ),
