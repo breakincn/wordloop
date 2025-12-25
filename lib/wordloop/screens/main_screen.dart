@@ -192,7 +192,13 @@ class _MainScreenState extends State<MainScreen> {
     return RichText(
       text: TextSpan(
         children: [
-          TextSpan(text: correctPrefix, style: baseStyle),
+          TextSpan(
+            text: correctPrefix,
+            style: baseStyle?.copyWith(
+              color: Colors.green,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           if (errorChar.isNotEmpty)
             TextSpan(
               text: errorChar,
