@@ -37,6 +37,7 @@ class WordLoopController extends ChangeNotifier {
   bool _blindWordHintVisible = false;
   bool _blindRevealHintOnNextInput = false;
   int _blindLastInputLength = 0;
+  int _blindHintTriggerCount = 0;
 
   Phase get phase => _phase;
   int get index => _index;
@@ -76,6 +77,7 @@ class WordLoopController extends ChangeNotifier {
     _blindWordHintVisible = false;
     _blindRevealHintOnNextInput = false;
     _blindLastInputLength = 0;
+    _blindHintTriggerCount = 0;
     _blindWordHintTimer?.cancel();
     _blindAutoSubmitTimer?.cancel();
     _cancelTimer();
@@ -103,6 +105,7 @@ class WordLoopController extends ChangeNotifier {
     _blindWordHintVisible = false;
     _blindRevealHintOnNextInput = false;
     _blindLastInputLength = 0;
+    _blindHintTriggerCount = 0;
     _blindWordHintTimer?.cancel();
     _blindAutoSubmitTimer?.cancel();
 
@@ -157,6 +160,7 @@ class WordLoopController extends ChangeNotifier {
         _blindWordHintVisible = false;
         _blindRevealHintOnNextInput = false;
         _blindLastInputLength = 0;
+        _blindHintTriggerCount = 0;
         _blindWordHintTimer?.cancel();
         _onInputAction?.call('clear');
       }
@@ -202,7 +206,22 @@ class WordLoopController extends ChangeNotifier {
   void _showBlindWordHint() {
     _blindWordHintTimer?.cancel();
     _blindWordHintVisible = true;
+    _blindHintTriggerCount += 1;
+    
+    // 播放读音
+    unawaited(_ttsService.speak(currentWord.word));
+    
     notifyListeners();
+
+    // 检查是否已触发3次，如果是则加入错词表并进入下一词
+    if (_blindHintTriggerCount >= 3) {
+      _addWrong(currentWord);
+      _blindWordHintTimer = Timer(const Duration(milliseconds: 1500), () {
+        _blindWordHintVisible = false;
+        next();
+      });
+      return;
+    }
 
     // 0.5秒淡入；1.5秒后触发淡出隐藏
     _blindWordHintTimer = Timer(const Duration(milliseconds: 1500), () {
@@ -243,6 +262,8 @@ class WordLoopController extends ChangeNotifier {
         _blindRevealHintOnNextInput = false;
         _blindFullWrongStreak = 0;
         _showBlindWordHint();
+        // 提示触发时清空输入框
+        _onInputAction?.call('clear');
       }
 
       if (trimmed.length >= word.word.length) {
