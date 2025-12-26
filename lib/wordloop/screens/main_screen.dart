@@ -127,11 +127,11 @@ class _MainScreenState extends State<MainScreen> {
       _textController.text = '${_textController.text}${token.ch}';
     });
 
-    if (controller.phase == Phase.recall) {
+    if (controller.phase == Phase.recall || controller.phase == Phase.blindTest) {
       controller.checkInputRealtime(_textController.text);
     }
 
-    if (_textController.text.length >= controller.currentWord.word.length) {
+    if (controller.phase != Phase.blindTest && _textController.text.length >= controller.currentWord.word.length) {
       _submitSpelling(controller);
     }
   }
@@ -252,7 +252,7 @@ class _MainScreenState extends State<MainScreen> {
   void _handleInputAction(String action) {
     final controller = context.read<WordLoopController>();
     final phase = controller.phase;
-    if (phase == Phase.recall) {
+    if (phase == Phase.recall || phase == Phase.blindTest) {
       setState(() {
         final targetWord = controller.currentWord.word;
         if (action == 'clear') {
@@ -261,6 +261,10 @@ class _MainScreenState extends State<MainScreen> {
           _applyInputToTokens(targetWord: targetWord, input: action);
         }
       });
+
+      if (phase == Phase.blindTest) {
+        controller.checkInputRealtime(_textController.text);
+      }
       return;
     }
 
@@ -272,7 +276,7 @@ class _MainScreenState extends State<MainScreen> {
         TextPosition(offset: action.length),
       );
     }
-    if (phase != Phase.spellingInput && phase != Phase.recall && phase != Phase.preview) {
+    if (phase != Phase.spellingInput && phase != Phase.recall && phase != Phase.blindTest && phase != Phase.preview) {
       _focusNode.requestFocus();
     }
   }
@@ -294,7 +298,7 @@ class _MainScreenState extends State<MainScreen> {
                     ? null
                     : () {
                         _onBackspace();
-                        if (controller.phase == Phase.recall) {
+                        if (controller.phase == Phase.recall || controller.phase == Phase.blindTest) {
                           controller.checkInputRealtime(_textController.text);
                         }
                       },
@@ -308,7 +312,7 @@ class _MainScreenState extends State<MainScreen> {
                     ? null
                     : () {
                         _onClearSpelling();
-                        if (controller.phase == Phase.recall) {
+                        if (controller.phase == Phase.recall || controller.phase == Phase.blindTest) {
                           controller.checkInputRealtime(_textController.text);
                         }
                       },
@@ -595,7 +599,7 @@ class _MainScreenState extends State<MainScreen> {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             const SizedBox(height: 12),
-            if (controller.phase == Phase.spellingInput || controller.phase == Phase.recall)
+            if (controller.phase == Phase.spellingInput || controller.phase == Phase.recall || controller.phase == Phase.blindTest)
               _buildSpellingInputPad(controller)
             else if (controller.phase != Phase.preview)
               _buildCustomTextField(controller),
@@ -634,7 +638,10 @@ class _MainScreenState extends State<MainScreen> {
                       _letterPoolForWord = '';
                       _availableLetters = <_LetterToken>[];
                       _selectedLetters = <_LetterToken>[];
-                      if (controller.phase != Phase.spellingInput && controller.phase != Phase.recall && controller.phase != Phase.preview) {
+                      if (controller.phase != Phase.spellingInput &&
+                          controller.phase != Phase.recall &&
+                          controller.phase != Phase.blindTest &&
+                          controller.phase != Phase.preview) {
                         _focusNode.requestFocus();
                       }
                     },
