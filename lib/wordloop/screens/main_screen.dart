@@ -56,6 +56,10 @@ class _MainScreenState extends State<MainScreen> {
   List<_LetterToken> _availableLetters = <_LetterToken>[];
   List<_LetterToken> _selectedLetters = <_LetterToken>[];
 
+  String _spellingStateForWord = '';
+  List<_LetterToken?> _spellingCorrectTokens = <_LetterToken?>[];
+  List<bool> _spellingWrongAtIndex = <bool>[];
+
   bool _lastHintVisible = false;
   bool _recallHadErrorWhileHintVisible = false;
 
@@ -85,6 +89,30 @@ class _MainScreenState extends State<MainScreen> {
     _availableLetters.shuffle(_random);
     _selectedLetters = <_LetterToken>[];
     _textController.text = '';
+  }
+
+  void _ensureSpellingState(String targetWord) {
+    if (_spellingStateForWord == targetWord) return;
+    _spellingStateForWord = targetWord;
+    _spellingCorrectTokens = List<_LetterToken?>.filled(targetWord.length, null);
+    _spellingWrongAtIndex = List<bool>.filled(targetWord.length, false);
+    _ensureLetterPool(targetWord);
+  }
+
+  int _spellingNextIndex() {
+    for (int i = 0; i < _spellingCorrectTokens.length; i++) {
+      if (_spellingCorrectTokens[i] == null) return i;
+    }
+    return _spellingCorrectTokens.length;
+  }
+
+  void _syncTextFromSpellingCorrect() {
+    final buffer = StringBuffer();
+    for (final t in _spellingCorrectTokens) {
+      if (t == null) break;
+      buffer.write(t.ch);
+    }
+    _textController.text = buffer.toString();
   }
 
   void _resetLetterPool(String targetWord) {
@@ -121,6 +149,31 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _onPickLetter(WordLoopController controller, _LetterToken token) {
+    if (controller.phase == Phase.spellingInput) {
+      final targetWord = controller.currentWord.word;
+      _ensureSpellingState(targetWord);
+      final idx = _spellingNextIndex();
+      if (idx >= targetWord.length) return;
+
+      final isCorrect = token.ch.toLowerCase() == targetWord[idx].toLowerCase();
+      setState(() {
+        if (isCorrect) {
+          _spellingCorrectTokens[idx] = token;
+          _spellingWrongAtIndex[idx] = false;
+          _availableLetters.removeWhere((t) => t.id == token.id);
+          _selectedLetters.add(token);
+          _syncTextFromSpellingCorrect();
+        } else {
+          _spellingWrongAtIndex[idx] = true;
+        }
+      });
+
+      if (_spellingNextIndex() >= targetWord.length) {
+        _submitSpelling(controller);
+      }
+      return;
+    }
+
     setState(() {
       _availableLetters.removeWhere((t) => t.id == token.id);
       _selectedLetters.add(token);
@@ -137,6 +190,29 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _onBackspace() {
+    final controller = context.read<WordLoopController>();
+    if (controller.phase == Phase.spellingInput) {
+      final targetWord = controller.currentWord.word;
+      _ensureSpellingState(targetWord);
+      final nextIdx = _spellingNextIndex();
+      final idx = (nextIdx - 1).clamp(0, targetWord.length - 1);
+
+      setState(() {
+        if (_spellingCorrectTokens[idx] != null) {
+          final token = _spellingCorrectTokens[idx]!;
+          _spellingCorrectTokens[idx] = null;
+          _spellingWrongAtIndex[idx] = false;
+          _selectedLetters.removeWhere((t) => t.id == token.id);
+          _availableLetters.add(token);
+          _availableLetters.shuffle(_random);
+        } else {
+          _spellingWrongAtIndex[idx] = false;
+        }
+        _syncTextFromSpellingCorrect();
+      });
+      return;
+    }
+
     if (_selectedLetters.isEmpty) return;
     setState(() {
       final last = _selectedLetters.removeLast();
@@ -148,6 +224,24 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _onClearSpelling() {
+    final controller = context.read<WordLoopController>();
+    if (controller.phase == Phase.spellingInput) {
+      final targetWord = controller.currentWord.word;
+      _ensureSpellingState(targetWord);
+      setState(() {
+        _spellingCorrectTokens = List<_LetterToken?>.filled(targetWord.length, null);
+        _spellingWrongAtIndex = List<bool>.filled(targetWord.length, false);
+        _availableLetters = List<_LetterToken>.generate(
+          targetWord.length,
+          (i) => _LetterToken(id: '${targetWord}_$i', ch: targetWord[i]),
+        );
+        _availableLetters.shuffle(_random);
+        _selectedLetters.clear();
+        _textController.clear();
+      });
+      return;
+    }
+
     if (_selectedLetters.isEmpty) return;
     setState(() {
       _availableLetters.addAll(_selectedLetters);
@@ -155,6 +249,30 @@ class _MainScreenState extends State<MainScreen> {
       _availableLetters.shuffle(_random);
       _textController.clear();
     });
+  }
+
+  Widget _buildSpellingWordStatusText({required String targetWord, required TextStyle? style}) {
+    _ensureSpellingState(targetWord);
+    final baseStyle = style ?? const TextStyle();
+    final spans = <InlineSpan>[];
+    for (int i = 0; i < targetWord.length; i++) {
+      Color? color;
+      FontWeight? weight;
+      if (_spellingCorrectTokens.length > i && _spellingCorrectTokens[i] != null) {
+        color = Colors.green;
+        weight = FontWeight.bold;
+      } else if (_spellingWrongAtIndex.length > i && _spellingWrongAtIndex[i]) {
+        color = Colors.red;
+        weight = FontWeight.bold;
+      }
+      spans.add(
+        TextSpan(
+          text: targetWord[i],
+          style: baseStyle.copyWith(color: color, fontWeight: weight),
+        ),
+      );
+    }
+    return RichText(text: TextSpan(children: spans));
   }
 
   Widget _buildCustomTextField(WordLoopController controller) {
@@ -535,10 +653,15 @@ class _MainScreenState extends State<MainScreen> {
                 AnimatedOpacity(
                   duration: const Duration(milliseconds: 250),
                   opacity: controller.wordVisible && controller.phase != Phase.blindTest ? 1 : 0,
-                  child: _buildWordProgressText(
-                    targetWord: word.word,
-                    style: Theme.of(context).textTheme.displaySmall,
-                  ),
+                  child: controller.phase == Phase.spellingInput
+                      ? _buildSpellingWordStatusText(
+                          targetWord: word.word,
+                          style: Theme.of(context).textTheme.displaySmall,
+                        )
+                      : _buildWordProgressText(
+                          targetWord: word.word,
+                          style: Theme.of(context).textTheme.displaySmall,
+                        ),
                 ),
                 AnimatedOpacity(
                   duration: const Duration(milliseconds: 250),
