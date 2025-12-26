@@ -63,6 +63,8 @@ class _MainScreenState extends State<MainScreen> {
   String _blindStateForWord = '';
   List<_LetterToken?> _blindCorrectTokens = <_LetterToken?>[];
   List<bool> _blindWrongAtIndex = <bool>[];
+  int _blindWrongIndex = -1;
+  String _blindWrongChar = '';
 
   bool _lastHintVisible = false;
   bool _recallHadErrorWhileHintVisible = false;
@@ -143,6 +145,44 @@ class _MainScreenState extends State<MainScreen> {
     _textController.text = buffer.toString();
   }
 
+  Widget _buildBlindWordStatusText({required String targetWord, required TextStyle? style}) {
+    _ensureBlindState(targetWord);
+    final baseStyle = style ?? const TextStyle();
+    final nextIdx = _blindNextIndex();
+
+    final spans = <InlineSpan>[];
+    for (int i = 0; i < targetWord.length; i++) {
+      if (_blindCorrectTokens.length > i && _blindCorrectTokens[i] != null) {
+        spans.add(
+          TextSpan(
+            text: _blindCorrectTokens[i]!.ch,
+            style: baseStyle.copyWith(color: Colors.green, fontWeight: FontWeight.bold),
+          ),
+        );
+        continue;
+      }
+
+      if (i == nextIdx && _blindWrongIndex == nextIdx && _blindWrongChar.isNotEmpty) {
+        spans.add(
+          TextSpan(
+            text: _blindWrongChar,
+            style: baseStyle.copyWith(color: Colors.red, fontWeight: FontWeight.bold),
+          ),
+        );
+        continue;
+      }
+
+      spans.add(
+        TextSpan(
+          text: '_',
+          style: baseStyle.copyWith(color: Colors.black26, fontWeight: FontWeight.bold),
+        ),
+      );
+    }
+
+    return RichText(text: TextSpan(children: spans));
+  }
+
   void _resetLetterPool(String targetWord) {
     _letterPoolForWord = '';
     _ensureLetterPool(targetWord);
@@ -213,11 +253,17 @@ class _MainScreenState extends State<MainScreen> {
         if (isCorrect) {
           _blindCorrectTokens[idx] = token;
           _blindWrongAtIndex[idx] = false;
+          if (_blindWrongIndex == idx) {
+            _blindWrongIndex = -1;
+            _blindWrongChar = '';
+          }
           _availableLetters.removeWhere((t) => t.id == token.id);
           _selectedLetters.add(token);
           _syncTextFromBlindCorrect();
         } else {
           _blindWrongAtIndex[idx] = true;
+          _blindWrongIndex = idx;
+          _blindWrongChar = token.ch;
         }
       });
 
@@ -268,6 +314,15 @@ class _MainScreenState extends State<MainScreen> {
       final targetWord = controller.currentWord.word;
       _ensureBlindState(targetWord);
       final nextIdx = _blindNextIndex();
+      if (_blindWrongIndex == nextIdx && _blindWrongChar.isNotEmpty) {
+        setState(() {
+          _blindWrongAtIndex[nextIdx] = false;
+          _blindWrongIndex = -1;
+          _blindWrongChar = '';
+        });
+        return;
+      }
+
       final idx = (nextIdx - 1).clamp(0, targetWord.length - 1);
 
       setState(() {
@@ -275,6 +330,10 @@ class _MainScreenState extends State<MainScreen> {
           final token = _blindCorrectTokens[idx]!;
           _blindCorrectTokens[idx] = null;
           _blindWrongAtIndex[idx] = false;
+          if (_blindWrongIndex == idx) {
+            _blindWrongIndex = -1;
+            _blindWrongChar = '';
+          }
           _selectedLetters.removeWhere((t) => t.id == token.id);
           _availableLetters.add(token);
           _availableLetters.shuffle(_random);
@@ -323,6 +382,8 @@ class _MainScreenState extends State<MainScreen> {
       setState(() {
         _blindCorrectTokens = List<_LetterToken?>.filled(targetWord.length, null);
         _blindWrongAtIndex = List<bool>.filled(targetWord.length, false);
+        _blindWrongIndex = -1;
+        _blindWrongChar = '';
         _availableLetters = List<_LetterToken>.generate(
           targetWord.length,
           (i) => _LetterToken(id: '${targetWord}_$i', ch: targetWord[i]),
@@ -475,6 +536,8 @@ class _MainScreenState extends State<MainScreen> {
           if (action == 'clear') {
             _blindCorrectTokens = List<_LetterToken?>.filled(targetWord.length, null);
             _blindWrongAtIndex = List<bool>.filled(targetWord.length, false);
+            _blindWrongIndex = -1;
+            _blindWrongChar = '';
             _availableLetters = List<_LetterToken>.generate(
               targetWord.length,
               (i) => _LetterToken(id: '${targetWord}_$i', ch: targetWord[i]),
@@ -483,6 +546,8 @@ class _MainScreenState extends State<MainScreen> {
             _selectedLetters.clear();
             _textController.clear();
           } else {
+            _blindWrongIndex = -1;
+            _blindWrongChar = '';
             _applyInputToTokens(targetWord: targetWord, input: action);
           }
         } else {
@@ -780,10 +845,7 @@ class _MainScreenState extends State<MainScreen> {
                 AnimatedOpacity(
                   duration: const Duration(milliseconds: 250),
                   opacity: (controller.phase == Phase.blindTest && !controller.blindWordHintVisible) ? 1 : 0,
-                  child: _buildBlindTypingProgressText(
-                    targetWord: word.word,
-                    style: Theme.of(context).textTheme.displaySmall,
-                  ),
+                  child: _buildBlindWordStatusText(targetWord: word.word, style: Theme.of(context).textTheme.displaySmall),
                 ),
                 AnimatedOpacity(
                   duration: const Duration(milliseconds: 500),
