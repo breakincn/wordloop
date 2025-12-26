@@ -91,7 +91,7 @@ class _MainScreenState extends State<MainScreen> {
                 labelText: '输入拼写',
               ),
               onChanged: (value) {
-                if (controller.phase == Phase.recall) {
+                if (controller.phase == Phase.recall || controller.phase == Phase.blindTest) {
                   controller.checkInputRealtime(value);
                 }
                 setState(() {});
@@ -283,10 +283,12 @@ class _MainScreenState extends State<MainScreen> {
         continue;
       }
 
+      // 显示用户输入的字母，而不是目标字母
+      final userInputChar = input[i];
       final isCorrect = i < targetLower.length && inputLower[i] == targetLower[i];
       children.add(
         TextSpan(
-          text: targetWord[i],
+          text: userInputChar,
           style: baseStyle.copyWith(
             color: isCorrect ? Colors.green : Colors.black26,
             fontWeight: FontWeight.bold,

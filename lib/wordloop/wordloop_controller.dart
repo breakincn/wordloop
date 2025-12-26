@@ -28,6 +28,7 @@ class WordLoopController extends ChangeNotifier {
   Timer? _hintFadeTimer;
   Timer? _inputActionTimer;
   Timer? _blindWordHintTimer;
+  Timer? _blindAutoSubmitTimer;
   bool _hintVisible = true;
   Function(String)? _onInputAction;
   int _errorPosition = -1;
@@ -72,6 +73,7 @@ class WordLoopController extends ChangeNotifier {
     _blindFullWrongStreak = 0;
     _blindWordHintVisible = false;
     _blindWordHintTimer?.cancel();
+    _blindAutoSubmitTimer?.cancel();
     _cancelTimer();
     notifyListeners();
     _speakCurrent();
@@ -84,6 +86,7 @@ class WordLoopController extends ChangeNotifier {
     _hintFadeTimer?.cancel();
     _inputActionTimer?.cancel();
     _blindWordHintTimer?.cancel();
+    _blindAutoSubmitTimer?.cancel();
     unawaited(_ttsService.dispose());
     super.dispose();
   }
@@ -95,6 +98,7 @@ class WordLoopController extends ChangeNotifier {
     _blindFullWrongStreak = 0;
     _blindWordHintVisible = false;
     _blindWordHintTimer?.cancel();
+    _blindAutoSubmitTimer?.cancel();
 
     if (_phase == Phase.preview) {
       _advanceWithinPhaseOrTransition();
@@ -198,6 +202,14 @@ class WordLoopController extends ChangeNotifier {
     });
   }
 
+  void _scheduleBlindAutoSubmit(String input) {
+    _blindAutoSubmitTimer?.cancel();
+    
+    _blindAutoSubmitTimer = Timer(const Duration(seconds: 2), () {
+      submit(input);
+    });
+  }
+
   Future<void> playPronunciation() async {
     await _ttsService.speak(currentWord.word);
   }
@@ -211,6 +223,7 @@ class WordLoopController extends ChangeNotifier {
     if (trimmed.isEmpty) {
       _hintText = '';
       _errorPosition = -1;
+      _blindAutoSubmitTimer?.cancel();
       notifyListeners();
       return;
     }
@@ -225,6 +238,13 @@ class WordLoopController extends ChangeNotifier {
       _hintText = '';
       _errorPosition = -1;
       _inputActionTimer?.cancel();
+      
+      // 盲打阶段：输入到单词长度后2秒自动提交
+      if (_phase == Phase.blindTest && trimmed.length == word.word.length) {
+        _scheduleBlindAutoSubmit(trimmed);
+      } else {
+        _blindAutoSubmitTimer?.cancel();
+      }
     } else {
       // 输入错误，找到错误位置
       _errorPosition = _findErrorPosition(userInput, targetWord);
@@ -232,6 +252,9 @@ class WordLoopController extends ChangeNotifier {
       _scheduleHintFadeOut();
       _scheduleInputAction(trimmed, word.word);
       _speakRealtimeHintIfNeeded();
+      
+      // 盲打阶段错误时取消自动提交
+      _blindAutoSubmitTimer?.cancel();
     }
     notifyListeners();
   }
