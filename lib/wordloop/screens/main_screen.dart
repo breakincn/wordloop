@@ -371,6 +371,9 @@ class _MainScreenState extends State<MainScreen> {
     final controller = context.read<WordLoopController>();
     final phase = controller.phase;
     if (phase == Phase.recall || phase == Phase.blindTest) {
+      if (phase == Phase.recall && controller.hintVisible && controller.errorPosition >= 0) {
+        return;
+      }
       setState(() {
         final targetWord = controller.currentWord.word;
         if (action == 'clear') {
