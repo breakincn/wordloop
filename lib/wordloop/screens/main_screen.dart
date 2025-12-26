@@ -60,6 +60,10 @@ class _MainScreenState extends State<MainScreen> {
   List<_LetterToken?> _spellingCorrectTokens = <_LetterToken?>[];
   List<bool> _spellingWrongAtIndex = <bool>[];
 
+  String _blindStateForWord = '';
+  List<_LetterToken?> _blindCorrectTokens = <_LetterToken?>[];
+  List<bool> _blindWrongAtIndex = <bool>[];
+
   bool _lastHintVisible = false;
   bool _recallHadErrorWhileHintVisible = false;
 
@@ -99,6 +103,14 @@ class _MainScreenState extends State<MainScreen> {
     _ensureLetterPool(targetWord);
   }
 
+  void _ensureBlindState(String targetWord) {
+    if (_blindStateForWord == targetWord) return;
+    _blindStateForWord = targetWord;
+    _blindCorrectTokens = List<_LetterToken?>.filled(targetWord.length, null);
+    _blindWrongAtIndex = List<bool>.filled(targetWord.length, false);
+    _ensureLetterPool(targetWord);
+  }
+
   int _spellingNextIndex() {
     for (int i = 0; i < _spellingCorrectTokens.length; i++) {
       if (_spellingCorrectTokens[i] == null) return i;
@@ -106,9 +118,25 @@ class _MainScreenState extends State<MainScreen> {
     return _spellingCorrectTokens.length;
   }
 
+  int _blindNextIndex() {
+    for (int i = 0; i < _blindCorrectTokens.length; i++) {
+      if (_blindCorrectTokens[i] == null) return i;
+    }
+    return _blindCorrectTokens.length;
+  }
+
   void _syncTextFromSpellingCorrect() {
     final buffer = StringBuffer();
     for (final t in _spellingCorrectTokens) {
+      if (t == null) break;
+      buffer.write(t.ch);
+    }
+    _textController.text = buffer.toString();
+  }
+
+  void _syncTextFromBlindCorrect() {
+    final buffer = StringBuffer();
+    for (final t in _blindCorrectTokens) {
       if (t == null) break;
       buffer.write(t.ch);
     }
@@ -174,6 +202,29 @@ class _MainScreenState extends State<MainScreen> {
       return;
     }
 
+    if (controller.phase == Phase.blindTest) {
+      final targetWord = controller.currentWord.word;
+      _ensureBlindState(targetWord);
+      final idx = _blindNextIndex();
+      if (idx >= targetWord.length) return;
+
+      final isCorrect = token.ch.toLowerCase() == targetWord[idx].toLowerCase();
+      setState(() {
+        if (isCorrect) {
+          _blindCorrectTokens[idx] = token;
+          _blindWrongAtIndex[idx] = false;
+          _availableLetters.removeWhere((t) => t.id == token.id);
+          _selectedLetters.add(token);
+          _syncTextFromBlindCorrect();
+        } else {
+          _blindWrongAtIndex[idx] = true;
+        }
+      });
+
+      controller.checkInputRealtime(_textController.text);
+      return;
+    }
+
     setState(() {
       _availableLetters.removeWhere((t) => t.id == token.id);
       _selectedLetters.add(token);
@@ -213,6 +264,30 @@ class _MainScreenState extends State<MainScreen> {
       return;
     }
 
+    if (controller.phase == Phase.blindTest) {
+      final targetWord = controller.currentWord.word;
+      _ensureBlindState(targetWord);
+      final nextIdx = _blindNextIndex();
+      final idx = (nextIdx - 1).clamp(0, targetWord.length - 1);
+
+      setState(() {
+        if (_blindCorrectTokens[idx] != null) {
+          final token = _blindCorrectTokens[idx]!;
+          _blindCorrectTokens[idx] = null;
+          _blindWrongAtIndex[idx] = false;
+          _selectedLetters.removeWhere((t) => t.id == token.id);
+          _availableLetters.add(token);
+          _availableLetters.shuffle(_random);
+        } else {
+          _blindWrongAtIndex[idx] = false;
+        }
+        _syncTextFromBlindCorrect();
+      });
+
+      controller.checkInputRealtime(_textController.text);
+      return;
+    }
+
     if (_selectedLetters.isEmpty) return;
     setState(() {
       final last = _selectedLetters.removeLast();
@@ -239,6 +314,25 @@ class _MainScreenState extends State<MainScreen> {
         _selectedLetters.clear();
         _textController.clear();
       });
+      return;
+    }
+
+    if (controller.phase == Phase.blindTest) {
+      final targetWord = controller.currentWord.word;
+      _ensureBlindState(targetWord);
+      setState(() {
+        _blindCorrectTokens = List<_LetterToken?>.filled(targetWord.length, null);
+        _blindWrongAtIndex = List<bool>.filled(targetWord.length, false);
+        _availableLetters = List<_LetterToken>.generate(
+          targetWord.length,
+          (i) => _LetterToken(id: '${targetWord}_$i', ch: targetWord[i]),
+        );
+        _availableLetters.shuffle(_random);
+        _selectedLetters.clear();
+        _textController.clear();
+      });
+
+      controller.checkInputRealtime(_textController.text);
       return;
     }
 
@@ -376,10 +470,27 @@ class _MainScreenState extends State<MainScreen> {
       }
       setState(() {
         final targetWord = controller.currentWord.word;
-        if (action == 'clear') {
-          _applyInputToTokens(targetWord: targetWord, input: '');
+        if (phase == Phase.blindTest) {
+          _ensureBlindState(targetWord);
+          if (action == 'clear') {
+            _blindCorrectTokens = List<_LetterToken?>.filled(targetWord.length, null);
+            _blindWrongAtIndex = List<bool>.filled(targetWord.length, false);
+            _availableLetters = List<_LetterToken>.generate(
+              targetWord.length,
+              (i) => _LetterToken(id: '${targetWord}_$i', ch: targetWord[i]),
+            );
+            _availableLetters.shuffle(_random);
+            _selectedLetters.clear();
+            _textController.clear();
+          } else {
+            _applyInputToTokens(targetWord: targetWord, input: action);
+          }
         } else {
-          _applyInputToTokens(targetWord: targetWord, input: action);
+          if (action == 'clear') {
+            _applyInputToTokens(targetWord: targetWord, input: '');
+          } else {
+            _applyInputToTokens(targetWord: targetWord, input: action);
+          }
         }
       });
 
@@ -725,7 +836,9 @@ class _MainScreenState extends State<MainScreen> {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             const SizedBox(height: 12),
-            if (controller.phase == Phase.spellingInput || controller.phase == Phase.recall || controller.phase == Phase.blindTest)
+            if (controller.phase == Phase.wrongReview && word.word.isEmpty)
+              const SizedBox.shrink()
+            else if (controller.phase == Phase.spellingInput || controller.phase == Phase.recall || controller.phase == Phase.blindTest)
               _buildSpellingInputPad(controller)
             else if (controller.phase != Phase.preview)
               _buildCustomTextField(controller),

@@ -445,10 +445,20 @@ class WordLoopController extends ChangeNotifier {
         _phase = Phase.recall;
         break;
       case Phase.recall:
-        _phase = _wrongWords.isNotEmpty ? Phase.wrongReview : Phase.blindTest;
+        _phase = Phase.wrongReview;
         _phaseLoopCount = 0;
-        if (_phase == Phase.wrongReview) {
+        if (_wrongWords.isNotEmpty) {
           _currentList = List<Word>.from(_wrongWords);
+        } else {
+          _currentList = <Word>[
+            Word(id: 'empty-wrong-review', word: '', phonetic: '', meaning: ''),
+          ];
+          _hintText = '无错词';
+          _wordVisible = false;
+          _timer = Timer(const Duration(milliseconds: 800), () {
+            if (_phase != Phase.wrongReview) return;
+            _transitionPhase();
+          });
         }
         break;
       case Phase.wrongReview:
@@ -505,7 +515,10 @@ class WordLoopController extends ChangeNotifier {
         _phase == Phase.recall ||
         _phase == Phase.blindTest ||
         _phase == Phase.spellingInput) {
-      unawaited(_ttsService.speak(currentWord.word));
+      final w = currentWord.word;
+      if (w.isNotEmpty) {
+        unawaited(_ttsService.speak(w));
+      }
     }
   }
 
