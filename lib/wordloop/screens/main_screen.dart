@@ -348,11 +348,14 @@ class _MainScreenState extends State<MainScreen> {
                   ),
                 ),
                 AnimatedOpacity(
-                  duration: const Duration(seconds: 1),
+                  duration: const Duration(milliseconds: 500),
                   opacity: (controller.phase == Phase.blindTest && controller.blindWordHintVisible) ? 1 : 0,
                   child: Text(
                     word.word,
-                    style: Theme.of(context).textTheme.displaySmall,
+                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                      color: Colors.blue,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 AnimatedOpacity(
@@ -376,6 +379,13 @@ class _MainScreenState extends State<MainScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 6),
+            Text(
+              '已提交次数 ${word.attemptCount}',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
             const SizedBox(height: 8),
             Text(
               word.phonetic,
@@ -391,7 +401,7 @@ class _MainScreenState extends State<MainScreen> {
             if (controller.phase != Phase.preview)
               _buildCustomTextField(controller),
             const SizedBox(height: 12),
-            if (controller.phase != Phase.recall)
+            if (controller.phase != Phase.recall && controller.phase != Phase.blindTest)
               SizedBox(
                 height: 40,
                 child: Center(

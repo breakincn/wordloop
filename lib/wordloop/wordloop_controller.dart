@@ -35,6 +35,8 @@ class WordLoopController extends ChangeNotifier {
   DateTime _lastRealtimeHintSpeakAt = DateTime.fromMillisecondsSinceEpoch(0);
   int _blindFullWrongStreak = 0;
   bool _blindWordHintVisible = false;
+  bool _blindRevealHintOnNextInput = false;
+  int _blindLastInputLength = 0;
 
   Phase get phase => _phase;
   int get index => _index;
@@ -72,6 +74,8 @@ class WordLoopController extends ChangeNotifier {
     _wordVisible = true;
     _blindFullWrongStreak = 0;
     _blindWordHintVisible = false;
+    _blindRevealHintOnNextInput = false;
+    _blindLastInputLength = 0;
     _blindWordHintTimer?.cancel();
     _blindAutoSubmitTimer?.cancel();
     _cancelTimer();
@@ -97,6 +101,8 @@ class WordLoopController extends ChangeNotifier {
     _inputActionTimer?.cancel();
     _blindFullWrongStreak = 0;
     _blindWordHintVisible = false;
+    _blindRevealHintOnNextInput = false;
+    _blindLastInputLength = 0;
     _blindWordHintTimer?.cancel();
     _blindAutoSubmitTimer?.cancel();
 
@@ -138,6 +144,8 @@ class WordLoopController extends ChangeNotifier {
     final trimmed = input.trim();
     if (trimmed.isEmpty) return;
 
+    _blindAutoSubmitTimer?.cancel();
+
     final word = currentWord;
     word.attemptCount += 1;
     word.lastAttempt = DateTime.now();
@@ -147,7 +155,10 @@ class WordLoopController extends ChangeNotifier {
       if (_phase == Phase.blindTest) {
         _blindFullWrongStreak = 0;
         _blindWordHintVisible = false;
+        _blindRevealHintOnNextInput = false;
+        _blindLastInputLength = 0;
         _blindWordHintTimer?.cancel();
+        _onInputAction?.call('clear');
       }
       if (word.inWrongList) {
         word.inWrongList = false;
@@ -167,15 +178,12 @@ class WordLoopController extends ChangeNotifier {
     }
 
     if (_phase == Phase.blindTest) {
-      if (trimmed.length == word.word.length) {
-        _blindFullWrongStreak += 1;
-        if (_blindFullWrongStreak >= 4) {
-          _blindFullWrongStreak = 0;
-          _showBlindWordHint();
-        }
-      } else {
-        _blindFullWrongStreak = 0;
+      _blindFullWrongStreak += 1;
+      if (_blindFullWrongStreak >= 2) {
+        _blindRevealHintOnNextInput = true;
       }
+      _blindLastInputLength = 0;
+      _onInputAction?.call('clear');
     }
 
     _hintText = _buildHint(word: word, errorCount: word.errorCount, phase: _phase);
@@ -196,7 +204,8 @@ class WordLoopController extends ChangeNotifier {
     _blindWordHintVisible = true;
     notifyListeners();
 
-    _blindWordHintTimer = Timer(const Duration(seconds: 2), () {
+    // 0.5秒淡入；1.5秒后触发淡出隐藏
+    _blindWordHintTimer = Timer(const Duration(milliseconds: 1500), () {
       _blindWordHintVisible = false;
       notifyListeners();
     });
@@ -205,8 +214,9 @@ class WordLoopController extends ChangeNotifier {
   void _scheduleBlindAutoSubmit(String input) {
     _blindAutoSubmitTimer?.cancel();
     
-    _blindAutoSubmitTimer = Timer(const Duration(seconds: 2), () {
-      submit(input);
+    _blindAutoSubmitTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (_phase != Phase.blindTest) return;
+      unawaited(submit(input));
     });
   }
 
@@ -220,6 +230,32 @@ class WordLoopController extends ChangeNotifier {
 
   void checkInputRealtime(String input) {
     final trimmed = input.trim();
+    if (_phase == Phase.blindTest) {
+      if (trimmed.isEmpty) {
+        _blindAutoSubmitTimer?.cancel();
+        _blindLastInputLength = 0;
+        notifyListeners();
+        return;
+      }
+
+      final word = currentWord;
+      if (_blindRevealHintOnNextInput && _blindLastInputLength == 0) {
+        _blindRevealHintOnNextInput = false;
+        _blindFullWrongStreak = 0;
+        _showBlindWordHint();
+      }
+
+      if (trimmed.length >= word.word.length) {
+        _scheduleBlindAutoSubmit(trimmed);
+      } else {
+        _blindAutoSubmitTimer?.cancel();
+      }
+
+      _blindLastInputLength = trimmed.length;
+      notifyListeners();
+      return;
+    }
+
     if (trimmed.isEmpty) {
       _hintText = '';
       _errorPosition = -1;
