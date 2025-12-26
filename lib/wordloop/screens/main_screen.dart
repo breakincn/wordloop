@@ -56,6 +56,9 @@ class _MainScreenState extends State<MainScreen> {
   List<_LetterToken> _availableLetters = <_LetterToken>[];
   List<_LetterToken> _selectedLetters = <_LetterToken>[];
 
+  bool _lastHintVisible = false;
+  bool _recallHadErrorWhileHintVisible = false;
+
   @override
   void initState() {
     super.initState();
@@ -84,6 +87,25 @@ class _MainScreenState extends State<MainScreen> {
     _textController.text = '';
   }
 
+  void _resetLetterPool(String targetWord) {
+    _letterPoolForWord = '';
+    _ensureLetterPool(targetWord);
+  }
+
+  void _applyInputToTokens({required String targetWord, required String input}) {
+    _resetLetterPool(targetWord);
+    final buffer = StringBuffer();
+    for (int i = 0; i < input.length; i++) {
+      final ch = input[i];
+      final idx = _availableLetters.indexWhere((t) => t.ch == ch);
+      if (idx < 0) break;
+      final token = _availableLetters.removeAt(idx);
+      _selectedLetters.add(token);
+      buffer.write(ch);
+    }
+    _textController.text = buffer.toString();
+  }
+
   Future<void> _submitSpelling(WordLoopController controller) async {
     final input = _textController.text;
     if (input.trim().isEmpty) return;
@@ -104,6 +126,10 @@ class _MainScreenState extends State<MainScreen> {
       _selectedLetters.add(token);
       _textController.text = '${_textController.text}${token.ch}';
     });
+
+    if (controller.phase == Phase.recall) {
+      controller.checkInputRealtime(_textController.text);
+    }
 
     if (_textController.text.length >= controller.currentWord.word.length) {
       _submitSpelling(controller);
@@ -224,6 +250,20 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _handleInputAction(String action) {
+    final controller = context.read<WordLoopController>();
+    final phase = controller.phase;
+    if (phase == Phase.recall) {
+      setState(() {
+        final targetWord = controller.currentWord.word;
+        if (action == 'clear') {
+          _applyInputToTokens(targetWord: targetWord, input: '');
+        } else {
+          _applyInputToTokens(targetWord: targetWord, input: action);
+        }
+      });
+      return;
+    }
+
     if (action == 'clear') {
       _textController.clear();
     } else {
@@ -232,8 +272,7 @@ class _MainScreenState extends State<MainScreen> {
         TextPosition(offset: action.length),
       );
     }
-    final phase = context.read<WordLoopController>().phase;
-    if (phase != Phase.spellingInput && phase != Phase.preview) {
+    if (phase != Phase.spellingInput && phase != Phase.recall && phase != Phase.preview) {
       _focusNode.requestFocus();
     }
   }
@@ -251,14 +290,28 @@ class _MainScreenState extends State<MainScreen> {
           children: [
             Expanded(
               child: OutlinedButton(
-                onPressed: _selectedLetters.isEmpty ? null : _onBackspace,
+                onPressed: _selectedLetters.isEmpty
+                    ? null
+                    : () {
+                        _onBackspace();
+                        if (controller.phase == Phase.recall) {
+                          controller.checkInputRealtime(_textController.text);
+                        }
+                      },
                 child: const Text('退格'),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: OutlinedButton(
-                onPressed: _selectedLetters.isEmpty ? null : _onClearSpelling,
+                onPressed: _selectedLetters.isEmpty
+                    ? null
+                    : () {
+                        _onClearSpelling();
+                        if (controller.phase == Phase.recall) {
+                          controller.checkInputRealtime(_textController.text);
+                        }
+                      },
                 child: const Text('清空'),
               ),
             ),
@@ -431,6 +484,24 @@ class _MainScreenState extends State<MainScreen> {
     final controller = context.watch<WordLoopController>();
     final word = controller.currentWord;
 
+    final hintVisible = controller.hintVisible;
+    if (controller.phase == Phase.recall && hintVisible && controller.errorPosition >= 0) {
+      _recallHadErrorWhileHintVisible = true;
+    }
+    if (_lastHintVisible && !hintVisible && controller.phase == Phase.recall && _recallHadErrorWhileHintVisible) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final c = context.read<WordLoopController>();
+        if (c.phase != Phase.recall) return;
+        setState(() {
+          _applyInputToTokens(targetWord: c.currentWord.word, input: '');
+          _recallHadErrorWhileHintVisible = false;
+        });
+        c.checkInputRealtime('');
+      });
+    }
+    _lastHintVisible = hintVisible;
+
     final showMeaning = controller.phase == Phase.blindTest ||
         controller.phase == Phase.preview ||
         controller.phase == Phase.spellingInput ||
@@ -524,7 +595,7 @@ class _MainScreenState extends State<MainScreen> {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             const SizedBox(height: 12),
-            if (controller.phase == Phase.spellingInput)
+            if (controller.phase == Phase.spellingInput || controller.phase == Phase.recall)
               _buildSpellingInputPad(controller)
             else if (controller.phase != Phase.preview)
               _buildCustomTextField(controller),
@@ -563,7 +634,7 @@ class _MainScreenState extends State<MainScreen> {
                       _letterPoolForWord = '';
                       _availableLetters = <_LetterToken>[];
                       _selectedLetters = <_LetterToken>[];
-                      if (controller.phase != Phase.spellingInput && controller.phase != Phase.preview) {
+                      if (controller.phase != Phase.spellingInput && controller.phase != Phase.recall && controller.phase != Phase.preview) {
                         _focusNode.requestFocus();
                       }
                     },
