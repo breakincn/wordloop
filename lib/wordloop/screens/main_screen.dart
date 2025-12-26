@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:math';
 
 import '../phase.dart';
 import '../wordloop_controller.dart';
@@ -32,6 +33,13 @@ class HighlightTextEditingController extends TextEditingController {
   }
 }
 
+class _LetterToken {
+  final String id;
+  final String ch;
+
+  const _LetterToken({required this.id, required this.ch});
+}
+
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
 
@@ -43,13 +51,17 @@ class _MainScreenState extends State<MainScreen> {
   final HighlightTextEditingController _textController = HighlightTextEditingController();
   final FocusNode _focusNode = FocusNode();
 
+  final Random _random = Random();
+  String _letterPoolForWord = '';
+  List<_LetterToken> _availableLetters = <_LetterToken>[];
+  List<_LetterToken> _selectedLetters = <_LetterToken>[];
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<WordLoopController>().start();
       context.read<WordLoopController>().setInputActionCallback(_handleInputAction);
-      _focusNode.requestFocus();
     });
   }
 
@@ -58,6 +70,65 @@ class _MainScreenState extends State<MainScreen> {
     _textController.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  void _ensureLetterPool(String targetWord) {
+    if (_letterPoolForWord == targetWord) return;
+    _letterPoolForWord = targetWord;
+    _availableLetters = List<_LetterToken>.generate(
+      targetWord.length,
+      (i) => _LetterToken(id: '${targetWord}_$i', ch: targetWord[i]),
+    );
+    _availableLetters.shuffle(_random);
+    _selectedLetters = <_LetterToken>[];
+    _textController.text = '';
+  }
+
+  Future<void> _submitSpelling(WordLoopController controller) async {
+    final input = _textController.text;
+    if (input.trim().isEmpty) return;
+    await controller.submit(input);
+
+    if (!mounted) return;
+    setState(() {
+      _letterPoolForWord = '';
+      _availableLetters = <_LetterToken>[];
+      _selectedLetters = <_LetterToken>[];
+      _textController.clear();
+    });
+  }
+
+  void _onPickLetter(WordLoopController controller, _LetterToken token) {
+    setState(() {
+      _availableLetters.removeWhere((t) => t.id == token.id);
+      _selectedLetters.add(token);
+      _textController.text = '${_textController.text}${token.ch}';
+    });
+
+    if (_textController.text.length >= controller.currentWord.word.length) {
+      _submitSpelling(controller);
+    }
+  }
+
+  void _onBackspace() {
+    if (_selectedLetters.isEmpty) return;
+    setState(() {
+      final last = _selectedLetters.removeLast();
+      _availableLetters.add(last);
+      if (_textController.text.isNotEmpty) {
+        _textController.text = _textController.text.substring(0, _textController.text.length - 1);
+      }
+    });
+  }
+
+  void _onClearSpelling() {
+    if (_selectedLetters.isEmpty) return;
+    setState(() {
+      _availableLetters.addAll(_selectedLetters);
+      _selectedLetters.clear();
+      _availableLetters.shuffle(_random);
+      _textController.clear();
+    });
   }
 
   Widget _buildCustomTextField(WordLoopController controller) {
@@ -161,7 +232,62 @@ class _MainScreenState extends State<MainScreen> {
         TextPosition(offset: action.length),
       );
     }
-    _focusNode.requestFocus();
+    final phase = context.read<WordLoopController>().phase;
+    if (phase != Phase.spellingInput && phase != Phase.preview) {
+      _focusNode.requestFocus();
+    }
+  }
+
+  Widget _buildSpellingInputPad(WordLoopController controller) {
+    final targetWord = controller.currentWord.word;
+    _ensureLetterPool(targetWord);
+
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: _selectedLetters.isEmpty ? null : _onBackspace,
+                child: const Text('退格'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton(
+                onPressed: _selectedLetters.isEmpty ? null : _onClearSpelling,
+                child: const Text('清空'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          alignment: WrapAlignment.center,
+          children: _availableLetters
+              .map(
+                (t) => SizedBox(
+                  width: 56,
+                  height: 56,
+                  child: FilledButton(
+                    onPressed: () => _onPickLetter(controller, t),
+                    style: FilledButton.styleFrom(
+                      textStyle: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: Text(t.ch),
+                  ),
+                ),
+              )
+              .toList(),
+        ),
+      ],
+    );
   }
 
   Widget _buildRecallHiddenWordHint(WordLoopController controller) {
@@ -398,7 +524,9 @@ class _MainScreenState extends State<MainScreen> {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             const SizedBox(height: 12),
-            if (controller.phase != Phase.preview)
+            if (controller.phase == Phase.spellingInput)
+              _buildSpellingInputPad(controller)
+            else if (controller.phase != Phase.preview)
               _buildCustomTextField(controller),
             const SizedBox(height: 12),
             if (controller.phase != Phase.recall && controller.phase != Phase.blindTest)
@@ -432,7 +560,12 @@ class _MainScreenState extends State<MainScreen> {
                     onPressed: () {
                       controller.next();
                       _textController.clear();
-                      _focusNode.requestFocus();
+                      _letterPoolForWord = '';
+                      _availableLetters = <_LetterToken>[];
+                      _selectedLetters = <_LetterToken>[];
+                      if (controller.phase != Phase.spellingInput && controller.phase != Phase.preview) {
+                        _focusNode.requestFocus();
+                      }
                     },
                     child: Text(controller.phase == Phase.completion ? '重新开始' : '下一步'),
                   ),
