@@ -74,6 +74,7 @@ class _MainScreenState extends State<MainScreen> {
 
   bool _lastHintVisible = false;
   bool _recallHadErrorWhileHintVisible = false;
+  String _lastRecallWordId = '';
 
   Widget _buildPreviewWordProgressText({required String targetWord, required TextStyle? style, required int highlightCount}) {
     final baseStyle = style ?? const TextStyle();
@@ -904,6 +905,27 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     final controller = context.watch<WordLoopController>();
     final word = controller.currentWord;
+
+    if (controller.phase == Phase.recall && word.id != _lastRecallWordId) {
+      final newWordId = word.id;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final c = context.read<WordLoopController>();
+        if (c.phase != Phase.recall) return;
+        if (c.currentWord.id != newWordId) return;
+        setState(() {
+          _textController.clear();
+          _letterPoolForWord = '';
+          _availableLetters = <_LetterToken>[];
+          _selectedLetters = <_LetterToken>[];
+          _ensureLetterPool(c.currentWord.word);
+        });
+        c.checkInputRealtime('');
+      });
+      _lastRecallWordId = newWordId;
+    } else if (controller.phase != Phase.recall) {
+      _lastRecallWordId = '';
+    }
 
     // 阶段5完成页面使用独立布局
     if (controller.phase == Phase.completion) {
