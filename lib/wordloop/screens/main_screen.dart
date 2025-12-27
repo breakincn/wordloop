@@ -397,6 +397,14 @@ class _MainScreenState extends State<MainScreen> {
       return;
     }
 
+    if (controller.phase == Phase.recall) {
+      setState(() {
+        _textController.text = '${_textController.text}${token.ch}';
+      });
+      controller.checkInputRealtime(_textController.text);
+      return;
+    }
+
     setState(() {
       _availableLetters.removeWhere((t) => t.id == token.id);
       _selectedLetters.add(token);
@@ -602,6 +610,21 @@ class _MainScreenState extends State<MainScreen> {
       if (phase == Phase.recall && controller.hintVisible && controller.errorPosition >= 0) {
         return;
       }
+
+      if (phase == Phase.recall && action == '__recall_backspace1__') {
+        setState(() {
+          final current = _textController.text;
+          if (current.isNotEmpty) {
+            _textController.text = current.substring(0, current.length - 1);
+            _textController.selection = TextSelection.fromPosition(
+              TextPosition(offset: _textController.text.length),
+            );
+          }
+        });
+        controller.checkInputRealtime(_textController.text);
+        return;
+      }
+
       setState(() {
         final targetWord = controller.currentWord.word;
         if (phase == Phase.blindTest) {
@@ -977,7 +1000,7 @@ class _MainScreenState extends State<MainScreen> {
 
     // 其他阶段的原有布局
     final hintVisible = controller.hintVisible;
-    if (controller.phase == Phase.recall && hintVisible && controller.errorPosition >= 0) {
+    if (controller.phase == Phase.recall && hintVisible && controller.errorPosition >= 0 && !controller.recallFirstWrongActive) {
       _recallHadErrorWhileHintVisible = true;
     }
     if (_lastHintVisible && !hintVisible && controller.phase == Phase.recall && _recallHadErrorWhileHintVisible) {

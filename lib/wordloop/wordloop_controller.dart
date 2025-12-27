@@ -301,14 +301,11 @@ class WordLoopController extends ChangeNotifier {
           _recallFirstWrongTimer = Timer(const Duration(seconds: 1), () {
             if (_phase != Phase.recall) return;
             if (_recallFirstWrongActive != true) return;
-
-            final current = input.trim();
-            final newText = current.isEmpty ? '' : current.substring(0, current.length - 1);
             _recallFirstWrongActive = false;
             _errorPosition = -1;
             _hintVisible = false;
             notifyListeners();
-            _onInputAction?.call(newText);
+            _onInputAction?.call('__recall_backspace1__');
           });
           notifyListeners();
           return;
