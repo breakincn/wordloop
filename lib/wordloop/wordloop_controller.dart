@@ -166,8 +166,10 @@ class WordLoopController extends ChangeNotifier {
     _blindAutoSubmitTimer?.cancel();
 
     final word = currentWord;
-    word.attemptCount += 1;
-    word.lastAttempt = DateTime.now();
+    if (_phase == Phase.recall || _phase == Phase.wrongReview) {
+      word.attemptCount += 1;
+      word.lastAttempt = DateTime.now();
+    }
 
     final correct = trimmed.toLowerCase() == word.word.toLowerCase();
     if (correct) {

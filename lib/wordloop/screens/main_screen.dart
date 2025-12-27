@@ -1022,42 +1022,41 @@ class _MainScreenState extends State<MainScreen> {
                 ],
               ),
             const SizedBox(height: 6),
-            if (controller.phase != Phase.completion) ...[
+            if (controller.phase == Phase.recall || controller.phase == Phase.wrongReview)
               Text(
                 '已提交次数 ${word.attemptCount}',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
               ),
-              const SizedBox(height: 8),
+            const SizedBox(height: 8),
+            Text(
+              word.phonetic,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            if (showMeaning)
               Text(
-                word.phonetic,
-                style: Theme.of(context).textTheme.titleLarge,
+                word.meaning,
+                style: Theme.of(context).textTheme.titleMedium,
               ),
-              const SizedBox(height: 8),
-              if (showMeaning)
-                Text(
-                  word.meaning,
-                  style: Theme.of(context).textTheme.titleMedium,
+            if (controller.phase == Phase.preview) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () async {
+                    if (controller.previewPaused) {
+                      controller.resumePreview();
+                    } else {
+                      await controller.pausePreview();
+                    }
+                  },
+                  child: Text(controller.previewPaused ? '继续' : '暂停'),
                 ),
-              if (controller.phase == Phase.preview) ...[
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () async {
-                      if (controller.previewPaused) {
-                        controller.resumePreview();
-                      } else {
-                        await controller.pausePreview();
-                      }
-                    },
-                    child: Text(controller.previewPaused ? '继续' : '暂停'),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 12),
+              ),
             ],
+            const SizedBox(height: 12),
             if (controller.phase != Phase.completion) ...[
               if (controller.phase == Phase.wrongReview && word.word.isEmpty)
                 const SizedBox.shrink()
