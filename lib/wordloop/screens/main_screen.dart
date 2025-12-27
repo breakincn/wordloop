@@ -729,6 +729,100 @@ class _MainScreenState extends State<MainScreen> {
     final controller = context.watch<WordLoopController>();
     final word = controller.currentWord;
 
+    // 阶段5完成页面使用独立布局
+    if (controller.phase == Phase.completion) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text('WordLoop  ${controller.phase.label}'),
+          actions: [
+            IconButton(
+              onPressed: controller.playPronunciation,
+              icon: const Icon(Icons.volume_up),
+            ),
+          ],
+        ),
+        body: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '正确率 ${(controller.accuracy * 100).toStringAsFixed(1)}%  错词 ${controller.wrongWords.length}',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView.separated(
+                  itemCount: controller.sessionWords.length,
+                  separatorBuilder: (context, index) => const Divider(height: 16),
+                  itemBuilder: (context, index) {
+                    final w = controller.sessionWords[index];
+                    final attempts = w.attemptCount;
+                    final errors = w.errorCount;
+                    final correct = (attempts - errors).clamp(0, attempts);
+                    final rate = attempts == 0 ? 0.0 : (correct / attempts);
+
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: 26,
+                          child: Text(
+                            '${index + 1}.',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                w.word,
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                w.meaning,
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          '${(rate * 100).toStringAsFixed(0)}% ($correct/$attempts)',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () {
+                    controller.next();
+                    _textController.clear();
+                    _letterPoolForWord = '';
+                    _availableLetters = <_LetterToken>[];
+                    _selectedLetters = <_LetterToken>[];
+                  },
+                  child: const Text('重新开始'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // 其他阶段的原有布局
     final hintVisible = controller.hintVisible;
     if (controller.phase == Phase.recall && hintVisible && controller.errorPosition >= 0) {
       _recallHadErrorWhileHintVisible = true;
@@ -770,184 +864,127 @@ class _MainScreenState extends State<MainScreen> {
               value: (controller.completedCount + 1) / controller.total,
             ),
             const SizedBox(height: 16),
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                AnimatedOpacity(
-                  duration: const Duration(milliseconds: 250),
-                  opacity: controller.wordVisible && controller.phase != Phase.blindTest ? 1 : 0,
-                  child: controller.phase == Phase.spellingInput
-                      ? _buildSpellingWordStatusText(
-                          targetWord: word.word,
-                          style: Theme.of(context).textTheme.displaySmall,
-                        )
-                      : _buildWordProgressText(
-                          targetWord: word.word,
-                          style: Theme.of(context).textTheme.displaySmall,
-                        ),
+            if (controller.phase != Phase.completion)
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  AnimatedOpacity(
+                    duration: const Duration(milliseconds: 250),
+                    opacity: controller.wordVisible && controller.phase != Phase.blindTest ? 1 : 0,
+                    child: controller.phase == Phase.spellingInput
+                        ? _buildSpellingWordStatusText(
+                            targetWord: word.word,
+                            style: Theme.of(context).textTheme.displaySmall,
+                          )
+                        : _buildWordProgressText(
+                            targetWord: word.word,
+                            style: Theme.of(context).textTheme.displaySmall,
+                          ),
+                  ),
+                  AnimatedOpacity(
+                    duration: const Duration(milliseconds: 250),
+                    opacity: (controller.phase == Phase.blindTest && !controller.blindWordHintVisible) ? 1 : 0,
+                    child: _buildBlindWordStatusText(targetWord: word.word, style: Theme.of(context).textTheme.displaySmall),
+                  ),
+                  AnimatedOpacity(
+                    duration: const Duration(milliseconds: 500),
+                    opacity: (controller.phase == Phase.blindTest && controller.blindWordHintVisible) ? 1 : 0,
+                    child: Text(
+                      word.word,
+                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                        color: Colors.blue,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  AnimatedOpacity(
+                    duration: const Duration(milliseconds: 120),
+                    opacity: (controller.phase == Phase.recall &&
+                            !controller.wordVisible &&
+                            controller.errorPosition < 0)
+                        ? 1
+                        : 0,
+                    child: _buildRecallHiddenWordProgress(controller),
+                  ),
+                  AnimatedOpacity(
+                    duration: const Duration(milliseconds: 250),
+                    opacity: (controller.phase == Phase.recall &&
+                            !controller.wordVisible &&
+                            controller.errorPosition >= 0 &&
+                            controller.hintVisible)
+                        ? 1
+                        : 0,
+                    child: _buildRecallHiddenWordHint(controller),
+                  ),
+                ],
+              ),
+            const SizedBox(height: 6),
+            if (controller.phase != Phase.completion) ...[
+              Text(
+                '已提交次数 ${word.attemptCount}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                word.phonetic,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              if (showMeaning)
+                Text(
+                  word.meaning,
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
-                AnimatedOpacity(
-                  duration: const Duration(milliseconds: 250),
-                  opacity: (controller.phase == Phase.blindTest && !controller.blindWordHintVisible) ? 1 : 0,
-                  child: _buildBlindWordStatusText(targetWord: word.word, style: Theme.of(context).textTheme.displaySmall),
-                ),
-                AnimatedOpacity(
-                  duration: const Duration(milliseconds: 500),
-                  opacity: (controller.phase == Phase.blindTest && controller.blindWordHintVisible) ? 1 : 0,
-                  child: Text(
-                    word.word,
-                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                      color: Colors.blue,
-                      fontWeight: FontWeight.bold,
+              const SizedBox(height: 12),
+            ],
+            if (controller.phase != Phase.completion) ...[
+              if (controller.phase == Phase.wrongReview && word.word.isEmpty)
+                const SizedBox.shrink()
+              else if (controller.phase == Phase.spellingInput || controller.phase == Phase.recall || controller.phase == Phase.blindTest)
+                _buildSpellingInputPad(controller)
+              else if (controller.phase != Phase.preview)
+                const SizedBox.shrink(),
+              const SizedBox(height: 12),
+              if (controller.phase != Phase.recall && controller.phase != Phase.blindTest)
+                SizedBox(
+                  height: 40,
+                  child: Center(
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 500),
+                      opacity: controller.hintVisible ? 1.0 : 0.0,
+                      child: controller.phase == Phase.wrongReview && controller.hintText.isNotEmpty
+                          ? _buildRichHint(controller.hintText, controller.currentWord.word)
+                          : Text(
+                              controller.hintText,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
                     ),
                   ),
                 ),
-                AnimatedOpacity(
-                  duration: const Duration(milliseconds: 120),
-                  opacity: (controller.phase == Phase.recall &&
-                          !controller.wordVisible &&
-                          controller.errorPosition < 0)
-                      ? 1
-                      : 0,
-                  child: _buildRecallHiddenWordProgress(controller),
-                ),
-                AnimatedOpacity(
-                  duration: const Duration(milliseconds: 250),
-                  opacity: (controller.phase == Phase.recall &&
-                          !controller.wordVisible &&
-                          controller.errorPosition >= 0 &&
-                          controller.hintVisible)
-                      ? 1
-                      : 0,
-                  child: _buildRecallHiddenWordHint(controller),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '已提交次数 ${word.attemptCount}',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              word.phonetic,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            if (showMeaning)
-              Text(
-                word.meaning,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            const SizedBox(height: 12),
-            if (controller.phase == Phase.wrongReview && word.word.isEmpty)
-              const SizedBox.shrink()
-            else if (controller.phase == Phase.spellingInput || controller.phase == Phase.recall || controller.phase == Phase.blindTest)
-              _buildSpellingInputPad(controller)
-            else if (controller.phase != Phase.preview)
-              const SizedBox.shrink(),
-            const SizedBox(height: 12),
-            if (controller.phase != Phase.recall && controller.phase != Phase.blindTest)
-              SizedBox(
-                height: 40,
-                child: Center(
-                  child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 500),
-                    opacity: controller.hintVisible ? 1.0 : 0.0,
-                    child: controller.phase == Phase.wrongReview && controller.hintText.isNotEmpty
-                        ? _buildRichHint(controller.hintText, controller.currentWord.word)
-                        : Text(
-                            controller.hintText,
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                  ),
-                ),
-              ),
+            ],
             const Spacer(),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: controller.skip,
-                    child: const Text('跳过'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: () {
-                      controller.next();
-                      _textController.clear();
-                      _letterPoolForWord = '';
-                      _availableLetters = <_LetterToken>[];
-                      _selectedLetters = <_LetterToken>[];
-                    },
-                    child: Text(controller.phase == Phase.completion ? '重新开始' : '下一步'),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (controller.phase == Phase.completion)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            if (controller.phase != Phase.completion)
+              Row(
                 children: [
-                  Text(
-                    '正确率 ${(controller.accuracy * 100).toStringAsFixed(1)}%  错词 ${controller.wrongWords.length}',
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: controller.skip,
+                      child: const Text('跳过'),
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 220,
-                    child: ListView.separated(
-                      itemCount: controller.sessionWords.length,
-                      separatorBuilder: (context, index) => const Divider(height: 16),
-                      itemBuilder: (context, index) {
-                        final w = controller.sessionWords[index];
-                        final attempts = w.attemptCount;
-                        final errors = w.errorCount;
-                        final correct = (attempts - errors).clamp(0, attempts);
-                        final rate = attempts == 0 ? 0.0 : (correct / attempts);
-
-                        return Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SizedBox(
-                              width: 26,
-                              child: Text(
-                                '${index + 1}.',
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                    ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    w.word,
-                                    style: Theme.of(context).textTheme.titleMedium,
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    w.meaning,
-                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                        ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              '${(rate * 100).toStringAsFixed(0)}% ($correct/$attempts)',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                          ],
-                        );
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () {
+                        controller.next();
+                        _textController.clear();
+                        _letterPoolForWord = '';
+                        _availableLetters = <_LetterToken>[];
+                        _selectedLetters = <_LetterToken>[];
                       },
+                      child: Text(controller.phase == Phase.completion ? '重新开始' : '下一步'),
                     ),
                   ),
                 ],
