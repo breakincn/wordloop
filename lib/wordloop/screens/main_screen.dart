@@ -551,7 +551,7 @@ class _MainScreenState extends State<MainScreen> {
         color = Colors.green;
         weight = FontWeight.bold;
       } else if (_spellingWrongAtIndex.length > i && _spellingWrongAtIndex[i]) {
-        color = Colors.red;
+        color = Colors.blue;
         weight = FontWeight.bold;
       }
       spans.add(
