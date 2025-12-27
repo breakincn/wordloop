@@ -421,7 +421,10 @@ class WordLoopController extends ChangeNotifier {
       _index += 1;
       _hintText = '';
       notifyListeners();
-      _speakCurrent();
+      // 回忆阶段不在这里播放读音，只在_enterRecallForCurrent中播放一次
+      if (_phase != Phase.recall) {
+        _speakCurrent();
+      }
       _scheduleAutoAdvanceIfNeeded();
       if (_phase == Phase.recall) {
         _enterRecallForCurrent();
