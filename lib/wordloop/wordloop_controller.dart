@@ -497,7 +497,7 @@ class WordLoopController extends ChangeNotifier {
     _wordVisible = true;
     notifyListeners();
 
-    final delay = Duration(milliseconds: (1000 + 50 * currentWord.length));
+    final delay = Duration(milliseconds: (500 + 50 * currentWord.length));
     _timer = Timer(delay, () {
       _wordVisible = false;
       notifyListeners();
