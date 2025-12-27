@@ -202,7 +202,9 @@ class WordLoopController extends ChangeNotifier {
         _wrongWords.removeWhere((w) => w.id == word.id);
       }
       _hintText = '正确';
-      _wordVisible = true;
+      if (_phase != Phase.recall) {
+        _wordVisible = true;
+      }
       notifyListeners();
       await Future<void>.delayed(const Duration(milliseconds: 1500)); // 延迟1.5秒显示正确提示
       _advanceWithinPhaseOrTransition();
