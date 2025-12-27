@@ -538,7 +538,7 @@ class WordLoopController extends ChangeNotifier {
     final w = currentWord.word;
     final len = w.length;
     final totalMs = 1500 + 200 * len;
-    const holdAllGreenMs = 300;
+    const holdAllGreenMs = 1500; // 延迟1秒后进入下一个单词
     final preAdvanceMs = (totalMs - holdAllGreenMs).clamp(0, totalMs);
 
     _timer = Timer(Duration(milliseconds: preAdvanceMs), () {
