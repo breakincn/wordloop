@@ -159,8 +159,8 @@ class _MainScreenState extends State<MainScreen> {
     });
     _blindCorrectButtonHintTimer?.cancel();
     
-    // 淡入淡出效果：先保持2秒显示，然后淡出
-    _blindCorrectButtonHintTimer = Timer(const Duration(seconds: 2), () {
+    // 淡入淡出效果：先保持1.5秒显示，然后淡出
+    _blindCorrectButtonHintTimer = Timer(const Duration(seconds: 1, milliseconds: 500), () {
       if (!mounted) return;
       setState(() {
         _blindCorrectButtonHintTokenId = '';
@@ -627,8 +627,8 @@ class _MainScreenState extends State<MainScreen> {
                       final hintActive = controller.phase == Phase.blindTest && _blindCorrectButtonHintTokenId == t.id;
                       const hintColor = Color(0xFF1B5E20);
                       return AnimatedContainer(
-                        duration: const Duration(milliseconds: 800),
-                        curve: Curves.easeInOut,
+                        duration: const Duration(milliseconds: 1500),
+                        curve: Curves.linear,
                         decoration: BoxDecoration(
                           color: hintActive ? hintColor.withOpacity(0.85) : hintColor.withOpacity(0),
                           borderRadius: BorderRadius.circular(12),
