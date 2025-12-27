@@ -485,8 +485,9 @@ class WordLoopController extends ChangeNotifier {
     notifyListeners();
     if (_phase == Phase.recall) {
       _enterRecallForCurrent();
+    } else {
+      _speakCurrent();
     }
-    _speakCurrent();
     _scheduleAutoAdvanceIfNeeded();
   }
 
