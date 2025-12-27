@@ -1167,7 +1167,7 @@ class _MainScreenState extends State<MainScreen> {
               else if (controller.phase != Phase.preview)
                 const SizedBox.shrink(),
               const SizedBox(height: 12),
-              if (controller.phase != Phase.recall && controller.phase != Phase.blindTest)
+              if (controller.phase != Phase.blindTest)
                 SizedBox(
                   height: 40,
                   child: Center(
