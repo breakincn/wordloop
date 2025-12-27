@@ -50,6 +50,8 @@ class WordLoopController extends ChangeNotifier {
 
   List<Word> get wrongWords => List<Word>.unmodifiable(_wrongWords);
 
+  List<Word> get sessionWords => List<Word>.unmodifiable(_allWords.take(10));
+
   Word get currentWord => _currentList[_index];
 
   int get completedCount => _index;

@@ -954,8 +954,66 @@ class _MainScreenState extends State<MainScreen> {
             ),
             const SizedBox(height: 12),
             if (controller.phase == Phase.completion)
-              Text(
-                '正确率 ${(controller.accuracy * 100).toStringAsFixed(1)}%  错词 ${controller.wrongWords.length}',
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '正确率 ${(controller.accuracy * 100).toStringAsFixed(1)}%  错词 ${controller.wrongWords.length}',
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 220,
+                    child: ListView.separated(
+                      itemCount: controller.sessionWords.length,
+                      separatorBuilder: (context, index) => const Divider(height: 16),
+                      itemBuilder: (context, index) {
+                        final w = controller.sessionWords[index];
+                        final attempts = w.attemptCount;
+                        final errors = w.errorCount;
+                        final correct = (attempts - errors).clamp(0, attempts);
+                        final rate = attempts == 0 ? 0.0 : (correct / attempts);
+
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              width: 26,
+                              child: Text(
+                                '${index + 1}.',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    w.word,
+                                    style: Theme.of(context).textTheme.titleMedium,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    w.meaning,
+                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              '${(rate * 100).toStringAsFixed(0)}% ($correct/$attempts)',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
           ],
         ),
