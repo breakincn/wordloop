@@ -1102,7 +1102,7 @@ class _MainScreenState extends State<MainScreen> {
                 ],
               ),
             const SizedBox(height: 6),
-            if (controller.phase == Phase.recall || controller.phase == Phase.wrongReview)
+            if (controller.phase == Phase.wrongReview)
               Text(
                 '已提交次数 ${word.attemptCount}',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(

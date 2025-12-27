@@ -190,7 +190,7 @@ class WordLoopController extends ChangeNotifier {
     _recallAutoSubmitTimer?.cancel();
 
     final word = currentWord;
-    if (_phase == Phase.recall || _phase == Phase.wrongReview) {
+    if (_phase == Phase.wrongReview) {
       word.attemptCount += 1;
       word.lastAttempt = DateTime.now();
     }
