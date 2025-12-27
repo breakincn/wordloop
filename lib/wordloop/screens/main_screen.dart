@@ -625,19 +625,13 @@ class _MainScreenState extends State<MainScreen> {
                   child: Builder(
                     builder: (context) {
                       final hintActive = controller.phase == Phase.blindTest && _blindCorrectButtonHintTokenId == t.id;
+                      const hintColor = Color(0xFF1B5E20);
                       return AnimatedContainer(
                         duration: const Duration(milliseconds: 800),
                         curve: Curves.easeInOut,
                         decoration: BoxDecoration(
-                          color: hintActive ? Colors.green.withOpacity(0.8) : Colors.transparent,
+                          color: hintActive ? hintColor.withOpacity(0.85) : hintColor.withOpacity(0),
                           borderRadius: BorderRadius.circular(12),
-                          boxShadow: hintActive ? [
-                            BoxShadow(
-                              color: Colors.green.withOpacity(0.3),
-                              blurRadius: 8,
-                              spreadRadius: 2,
-                            )
-                          ] : null,
                         ),
                         child: FilledButton(
                           onPressed: () => _onPickLetter(controller, t),
