@@ -49,7 +49,6 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   final HighlightTextEditingController _textController = HighlightTextEditingController();
-  final FocusNode _focusNode = FocusNode();
 
   final Random _random = Random();
   String _letterPoolForWord = '';
@@ -81,7 +80,6 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void dispose() {
     _textController.dispose();
-    _focusNode.dispose();
     super.dispose();
   }
 
@@ -430,59 +428,6 @@ class _MainScreenState extends State<MainScreen> {
     return RichText(text: TextSpan(children: spans));
   }
 
-  Widget _buildCustomTextField(WordLoopController controller) {
-    _textController.phase = controller.phase;
-    _textController.targetWordLower = controller.currentWord.word.toLowerCase();
-
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: Theme.of(context).colorScheme.outline),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '输入拼写',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _textController,
-              focusNode: _focusNode,
-              style: Theme.of(context).textTheme.titleMedium,
-              cursorColor: Theme.of(context).colorScheme.primary,
-              decoration: InputDecoration(
-                border: const OutlineInputBorder(),
-                labelText: '输入拼写',
-              ),
-              onChanged: (value) {
-                if (controller.phase == Phase.recall || controller.phase == Phase.blindTest) {
-                  controller.checkInputRealtime(value);
-                }
-                setState(() {});
-              },
-              onSubmitted: (value) async {
-                await controller.submit(value);
-                _textController.clear();
-                _focusNode.requestFocus();
-              },
-              textCapitalization: TextCapitalization.none,
-              keyboardType: TextInputType.text,
-              textInputAction: TextInputAction.done,
-              autocorrect: false,
-              enableSuggestions: false,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildRecallHiddenWordProgress(WordLoopController controller) {
     final targetWord = controller.currentWord.word;
     final input = _textController.text.trim();
@@ -573,9 +518,7 @@ class _MainScreenState extends State<MainScreen> {
         TextPosition(offset: action.length),
       );
     }
-    if (phase != Phase.spellingInput && phase != Phase.recall && phase != Phase.blindTest && phase != Phase.preview) {
-      _focusNode.requestFocus();
-    }
+    
   }
 
   Widget _buildSpellingInputPad(WordLoopController controller) {
@@ -904,7 +847,7 @@ class _MainScreenState extends State<MainScreen> {
             else if (controller.phase == Phase.spellingInput || controller.phase == Phase.recall || controller.phase == Phase.blindTest)
               _buildSpellingInputPad(controller)
             else if (controller.phase != Phase.preview)
-              _buildCustomTextField(controller),
+              const SizedBox.shrink(),
             const SizedBox(height: 12),
             if (controller.phase != Phase.recall && controller.phase != Phase.blindTest)
               SizedBox(
@@ -940,12 +883,6 @@ class _MainScreenState extends State<MainScreen> {
                       _letterPoolForWord = '';
                       _availableLetters = <_LetterToken>[];
                       _selectedLetters = <_LetterToken>[];
-                      if (controller.phase != Phase.spellingInput &&
-                          controller.phase != Phase.recall &&
-                          controller.phase != Phase.blindTest &&
-                          controller.phase != Phase.preview) {
-                        _focusNode.requestFocus();
-                      }
                     },
                     child: Text(controller.phase == Phase.completion ? '重新开始' : '下一步'),
                   ),
