@@ -68,6 +68,9 @@ class _MainScreenState extends State<MainScreen> {
   int _blindWrongIndex = -1;
   String _blindWrongChar = '';
   Timer? _blindWrongHideTimer;
+  int _blindConsecutiveWrongCount = 0;
+  String _blindCorrectButtonHintTokenId = '';
+  Timer? _blindCorrectButtonHintTimer;
 
   bool _lastHintVisible = false;
   bool _recallHadErrorWhileHintVisible = false;
@@ -104,6 +107,7 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void dispose() {
     _blindWrongHideTimer?.cancel();
+    _blindCorrectButtonHintTimer?.cancel();
     _textController.dispose();
     super.dispose();
   }
@@ -133,7 +137,33 @@ class _MainScreenState extends State<MainScreen> {
     _blindStateForWord = targetWord;
     _blindCorrectTokens = List<_LetterToken?>.filled(targetWord.length, null);
     _blindWrongAtIndex = List<bool>.filled(targetWord.length, false);
+    _blindWrongIndex = -1;
+    _blindWrongChar = '';
+    _blindConsecutiveWrongCount = 0;
+    _blindCorrectButtonHintTokenId = '';
+    _blindCorrectButtonHintTimer?.cancel();
     _ensureLetterPool(targetWord);
+  }
+
+  void _triggerBlindCorrectButtonHint({required String targetWord, required int idx}) {
+    if (idx < 0 || idx >= targetWord.length) return;
+    final correctCharLower = targetWord[idx].toLowerCase();
+    final token = _availableLetters.firstWhere(
+      (t) => t.ch.toLowerCase() == correctCharLower,
+      orElse: () => const _LetterToken(id: '', ch: ''),
+    );
+    if (token.id.isEmpty) return;
+
+    setState(() {
+      _blindCorrectButtonHintTokenId = token.id;
+    });
+    _blindCorrectButtonHintTimer?.cancel();
+    _blindCorrectButtonHintTimer = Timer(const Duration(seconds: 1), () {
+      if (!mounted) return;
+      setState(() {
+        _blindCorrectButtonHintTokenId = '';
+      });
+    });
   }
 
   int _spellingNextIndex() {
@@ -275,6 +305,9 @@ class _MainScreenState extends State<MainScreen> {
       final isCorrect = token.ch.toLowerCase() == targetWord[idx].toLowerCase();
       setState(() {
         if (isCorrect) {
+          _blindConsecutiveWrongCount = 0;
+          _blindCorrectButtonHintTokenId = '';
+          _blindCorrectButtonHintTimer?.cancel();
           _blindCorrectTokens[idx] = token;
           _blindWrongAtIndex[idx] = false;
           if (_blindWrongIndex == idx) {
@@ -286,6 +319,7 @@ class _MainScreenState extends State<MainScreen> {
           _selectedLetters.add(token);
           _syncTextFromBlindCorrect();
         } else {
+          _blindConsecutiveWrongCount += 1;
           _blindWrongAtIndex[idx] = true;
           _blindWrongIndex = idx;
           _blindWrongChar = token.ch;
@@ -306,6 +340,11 @@ class _MainScreenState extends State<MainScreen> {
           });
         }
       });
+
+      if (!isCorrect && _blindConsecutiveWrongCount >= 3) {
+        _blindConsecutiveWrongCount = 0;
+        _triggerBlindCorrectButtonHint(targetWord: targetWord, idx: idx);
+      }
 
       controller.checkInputRealtime(_textController.text);
       return;
@@ -581,14 +620,28 @@ class _MainScreenState extends State<MainScreen> {
                 (t) => SizedBox(
                   width: 56,
                   height: 56,
-                  child: FilledButton(
-                    onPressed: () => _onPickLetter(controller, t),
-                    style: FilledButton.styleFrom(
-                      textStyle: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: Text(t.ch),
-                  ),
+                  child: Builder(
+                    builder: (context) {
+                      final hintActive = controller.phase == Phase.blindTest && _blindCorrectButtonHintTokenId == t.id;
+                      return AnimatedContainer(
+                        duration: const Duration(seconds: 1),
+                        curve: Curves.easeOut,
+                        decoration: BoxDecoration(
+                          color: hintActive ? Colors.green : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: FilledButton(
+                          onPressed: () => _onPickLetter(controller, t),
+                          style: FilledButton.styleFrom(
+                            textStyle: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                            backgroundColor: hintActive ? Colors.transparent : null,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: Text(t.ch),
+                        ),
+                      );
+                    },
+                  )
                 ),
               )
               .toList(),
