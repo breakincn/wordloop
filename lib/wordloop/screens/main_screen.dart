@@ -609,37 +609,38 @@ class _MainScreenState extends State<MainScreen> {
               .toList(),
         ),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: _selectedLetters.isEmpty
-                    ? null
-                    : () {
-                        _onBackspace();
-                        if (controller.phase == Phase.recall || controller.phase == Phase.blindTest) {
-                          controller.checkInputRealtime(_textController.text);
-                        }
-                      },
-                child: const Text('退格'),
+        if (_availableLetters.isNotEmpty && _selectedLetters.isNotEmpty)
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _selectedLetters.isEmpty
+                      ? null
+                      : () {
+                          _onBackspace();
+                          if (controller.phase == Phase.recall || controller.phase == Phase.blindTest) {
+                            controller.checkInputRealtime(_textController.text);
+                          }
+                        },
+                  child: const Text('退格'),
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: OutlinedButton(
-                onPressed: _selectedLetters.isEmpty
-                    ? null
-                    : () {
-                        _onClearSpelling();
-                        if (controller.phase == Phase.recall || controller.phase == Phase.blindTest) {
-                          controller.checkInputRealtime(_textController.text);
-                        }
-                      },
-                child: const Text('清空'),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _selectedLetters.isEmpty
+                      ? null
+                      : () {
+                          _onClearSpelling();
+                          if (controller.phase == Phase.recall || controller.phase == Phase.blindTest) {
+                            controller.checkInputRealtime(_textController.text);
+                          }
+                        },
+                  child: const Text('清空'),
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
       ],
     );
   }
