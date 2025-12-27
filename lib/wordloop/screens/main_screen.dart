@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:math';
@@ -64,6 +66,7 @@ class _MainScreenState extends State<MainScreen> {
   List<bool> _blindWrongAtIndex = <bool>[];
   int _blindWrongIndex = -1;
   String _blindWrongChar = '';
+  Timer? _blindWrongHideTimer;
 
   bool _lastHintVisible = false;
   bool _recallHadErrorWhileHintVisible = false;
@@ -79,6 +82,7 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   void dispose() {
+    _blindWrongHideTimer?.cancel();
     _textController.dispose();
     super.dispose();
   }
@@ -255,6 +259,7 @@ class _MainScreenState extends State<MainScreen> {
             _blindWrongIndex = -1;
             _blindWrongChar = '';
           }
+          _blindWrongHideTimer?.cancel();
           _availableLetters.removeWhere((t) => t.id == token.id);
           _selectedLetters.add(token);
           _syncTextFromBlindCorrect();
@@ -262,6 +267,21 @@ class _MainScreenState extends State<MainScreen> {
           _blindWrongAtIndex[idx] = true;
           _blindWrongIndex = idx;
           _blindWrongChar = token.ch;
+          _blindWrongHideTimer?.cancel();
+          _blindWrongHideTimer = Timer(const Duration(seconds: 1), () {
+            if (!mounted) return;
+            final c = context.read<WordLoopController>();
+            if (c.phase != Phase.blindTest) return;
+            setState(() {
+              if (_blindWrongIndex == idx) {
+                _blindWrongIndex = -1;
+                _blindWrongChar = '';
+                if (_blindWrongAtIndex.length > idx) {
+                  _blindWrongAtIndex[idx] = false;
+                }
+              }
+            });
+          });
         }
       });
 
