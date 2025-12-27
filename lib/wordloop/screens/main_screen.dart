@@ -158,7 +158,9 @@ class _MainScreenState extends State<MainScreen> {
       _blindCorrectButtonHintTokenId = token.id;
     });
     _blindCorrectButtonHintTimer?.cancel();
-    _blindCorrectButtonHintTimer = Timer(const Duration(seconds: 1), () {
+    
+    // 淡入淡出效果：先保持2秒显示，然后淡出
+    _blindCorrectButtonHintTimer = Timer(const Duration(seconds: 2), () {
       if (!mounted) return;
       setState(() {
         _blindCorrectButtonHintTokenId = '';
@@ -624,11 +626,18 @@ class _MainScreenState extends State<MainScreen> {
                     builder: (context) {
                       final hintActive = controller.phase == Phase.blindTest && _blindCorrectButtonHintTokenId == t.id;
                       return AnimatedContainer(
-                        duration: const Duration(seconds: 1),
-                        curve: Curves.easeOut,
+                        duration: const Duration(milliseconds: 800),
+                        curve: Curves.easeInOut,
                         decoration: BoxDecoration(
-                          color: hintActive ? Colors.green : Colors.transparent,
+                          color: hintActive ? Colors.green.withOpacity(0.8) : Colors.transparent,
                           borderRadius: BorderRadius.circular(12),
+                          boxShadow: hintActive ? [
+                            BoxShadow(
+                              color: Colors.green.withOpacity(0.3),
+                              blurRadius: 8,
+                              spreadRadius: 2,
+                            )
+                          ] : null,
                         ),
                         child: FilledButton(
                           onPressed: () => _onPickLetter(controller, t),
@@ -637,7 +646,17 @@ class _MainScreenState extends State<MainScreen> {
                             backgroundColor: hintActive ? Colors.transparent : null,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
-                          child: Text(t.ch),
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 300),
+                            transitionBuilder: (child, anim) => FadeTransition(opacity: anim, child: child),
+                            child: Text(
+                              t.ch,
+                              key: ValueKey<String>(hintActive ? '${t.id}_hint' : t.id),
+                              style: hintActive 
+                                  ? const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
+                                  : null,
+                            ),
+                          ),
                         ),
                       );
                     },
