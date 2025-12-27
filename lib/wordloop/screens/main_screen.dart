@@ -587,6 +587,28 @@ class _MainScreenState extends State<MainScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          alignment: WrapAlignment.center,
+          children: _availableLetters
+              .map(
+                (t) => SizedBox(
+                  width: 56,
+                  height: 56,
+                  child: FilledButton(
+                    onPressed: () => _onPickLetter(controller, t),
+                    style: FilledButton.styleFrom(
+                      textStyle: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: Text(t.ch),
+                  ),
+                ),
+              )
+              .toList(),
+        ),
+        const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
@@ -617,28 +639,6 @@ class _MainScreenState extends State<MainScreen> {
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          alignment: WrapAlignment.center,
-          children: _availableLetters
-              .map(
-                (t) => SizedBox(
-                  width: 56,
-                  height: 56,
-                  child: FilledButton(
-                    onPressed: () => _onPickLetter(controller, t),
-                    style: FilledButton.styleFrom(
-                      textStyle: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: Text(t.ch),
-                  ),
-                ),
-              )
-              .toList(),
         ),
       ],
     );
