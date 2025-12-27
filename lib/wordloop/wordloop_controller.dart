@@ -12,6 +12,14 @@ class WordLoopController extends ChangeNotifier {
     _currentList = List<Word>.from(_allWords.take(10));
   }
 
+  void _scheduleRecallAutoSubmit(String input) {
+    _recallAutoSubmitTimer?.cancel();
+    _recallAutoSubmitTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (_phase != Phase.recall) return;
+      unawaited(submit(input));
+    });
+  }
+
   final TtsService _ttsService;
 
   late final List<Word> _allWords;
@@ -30,6 +38,7 @@ class WordLoopController extends ChangeNotifier {
   Timer? _blindAutoSubmitTimer;
   Timer? _previewHighlightTimer;
   Timer? _recallFirstWrongTimer;
+  Timer? _recallAutoSubmitTimer;
   bool _hintVisible = true;
   Function(String)? _onInputAction;
   int _errorPosition = -1;
@@ -80,6 +89,7 @@ class WordLoopController extends ChangeNotifier {
     _previewPaused = false;
     _previewHighlightCount = 0;
     _blindAutoSubmitTimer?.cancel();
+    _recallAutoSubmitTimer?.cancel();
     _cancelTimer();
     _cancelPreviewHighlightTimer();
     _cancelRecallFirstWrongTimer();
@@ -96,6 +106,7 @@ class WordLoopController extends ChangeNotifier {
     _cancelTimer();
     _cancelPreviewHighlightTimer();
     _cancelRecallFirstWrongTimer();
+    _recallAutoSubmitTimer?.cancel();
     _hintFadeTimer?.cancel();
     _inputActionTimer?.cancel();
     _blindAutoSubmitTimer?.cancel();
@@ -132,6 +143,7 @@ class WordLoopController extends ChangeNotifier {
     _recallWrongCountByPos.clear();
     _recallFirstWrongActive = false;
     _blindAutoSubmitTimer?.cancel();
+    _recallAutoSubmitTimer?.cancel();
 
     if (_phase == Phase.preview) {
       _previewPaused = false;
@@ -175,6 +187,7 @@ class WordLoopController extends ChangeNotifier {
     if (trimmed.isEmpty) return;
 
     _blindAutoSubmitTimer?.cancel();
+    _recallAutoSubmitTimer?.cancel();
 
     final word = currentWord;
     if (_phase == Phase.recall || _phase == Phase.wrongReview) {
@@ -274,6 +287,11 @@ class WordLoopController extends ChangeNotifier {
       if (_phase == Phase.recall) {
         _recallFirstWrongActive = false;
         _cancelRecallFirstWrongTimer();
+        if (trimmed.length >= word.word.length) {
+          _scheduleRecallAutoSubmit(trimmed);
+        } else {
+          _recallAutoSubmitTimer?.cancel();
+        }
       }
       _inputActionTimer?.cancel();
       
@@ -285,6 +303,7 @@ class WordLoopController extends ChangeNotifier {
       }
     } else {
       // 输入错误，找到错误位置
+      _recallAutoSubmitTimer?.cancel();
       _errorPosition = _findErrorPosition(userInput, targetWord);
       if (_phase == Phase.recall) {
         final pos = _errorPosition;
@@ -298,6 +317,7 @@ class WordLoopController extends ChangeNotifier {
           _hintFadeTimer?.cancel();
           _hintVisible = true;
           _cancelRecallFirstWrongTimer();
+          _recallAutoSubmitTimer?.cancel();
           _recallFirstWrongTimer = Timer(const Duration(seconds: 1), () {
             if (_phase != Phase.recall) return;
             if (_recallFirstWrongActive != true) return;
@@ -567,6 +587,7 @@ class WordLoopController extends ChangeNotifier {
   void _enterRecallForCurrent() {
     _cancelTimer();
     _cancelRecallFirstWrongTimer();
+    _recallAutoSubmitTimer?.cancel();
     _recallWrongCountByPos.clear();
     _recallFirstWrongActive = false;
     _wordVisible = true;
