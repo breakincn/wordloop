@@ -537,7 +537,7 @@ class WordLoopController extends ChangeNotifier {
     if (_previewPaused) return;
     final w = currentWord.word;
     final len = w.length;
-    const perLetterMs = 300; //
+    const perLetterMs = 300; // 控制自动切词的总时间计算 和perLetter保持一致
     const holdAllGreenMs = 1500; // 延迟1.5秒后进入下一个单词
     final preAdvanceMs = perLetterMs * len;
 
@@ -565,7 +565,7 @@ class WordLoopController extends ChangeNotifier {
     notifyListeners();
 
     final len = w.length;
-    const perLetter = 300;
+    const perLetter = 300; // 控制每个字母实际变绿的视觉间隔
 
     _previewHighlightTimer = Timer.periodic(Duration(milliseconds: perLetter), (t) {
       if (_phase != Phase.preview || _previewPaused) {
