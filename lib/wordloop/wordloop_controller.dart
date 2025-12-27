@@ -400,7 +400,7 @@ class WordLoopController extends ChangeNotifier {
     _hintVisible = true;
     notifyListeners();
     
-    _hintFadeTimer = Timer(const Duration(seconds: 2), () {
+    _hintFadeTimer = Timer(const Duration(seconds: 1), () {
       _hintVisible = false;
       notifyListeners();
     });
