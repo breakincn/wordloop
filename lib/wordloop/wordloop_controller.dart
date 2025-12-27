@@ -537,9 +537,9 @@ class WordLoopController extends ChangeNotifier {
     if (_previewPaused) return;
     final w = currentWord.word;
     final len = w.length;
-    final totalMs = 1500 + 200 * len;
-    const holdAllGreenMs = 1500; // 延迟1秒后进入下一个单词
-    final preAdvanceMs = (totalMs - holdAllGreenMs).clamp(0, totalMs);
+    const perLetterMs = 300; //
+    const holdAllGreenMs = 1500; // 延迟1.5秒后进入下一个单词
+    final preAdvanceMs = perLetterMs * len;
 
     _timer = Timer(Duration(milliseconds: preAdvanceMs), () {
       if (_phase != Phase.preview || _previewPaused) return;
@@ -565,9 +565,7 @@ class WordLoopController extends ChangeNotifier {
     notifyListeners();
 
     final len = w.length;
-    final autoMs = 1500 + 200 * len;
-    final holdAllGreenMs = 300;
-    final perLetter = ((autoMs - holdAllGreenMs) / len).floor().clamp(80, 500);
+    const perLetter = 300;
 
     _previewHighlightTimer = Timer.periodic(Duration(milliseconds: perLetter), (t) {
       if (_phase != Phase.preview || _previewPaused) {
