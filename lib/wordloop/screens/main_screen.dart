@@ -95,6 +95,51 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  Widget _buildRecallFirstWrongOnly(WordLoopController controller) {
+    final targetWord = controller.currentWord.word;
+    final input = _textController.text.trim();
+    if (input.isEmpty) {
+      return Text(
+        targetWord,
+        style: Theme.of(context).textTheme.displaySmall,
+      );
+    }
+
+    int correctPrefixLength = 0;
+    for (int i = 0; i < input.length && i < targetWord.length; i++) {
+      if (input.toLowerCase()[i] == targetWord.toLowerCase()[i]) {
+        correctPrefixLength++;
+      } else {
+        break;
+      }
+    }
+
+    final correctPrefix = targetWord.substring(0, correctPrefixLength);
+    final errorChar = correctPrefixLength < targetWord.length ? targetWord.substring(correctPrefixLength, correctPrefixLength + 1) : '';
+    final baseStyle = Theme.of(context).textTheme.displaySmall;
+    return RichText(
+      text: TextSpan(
+        children: [
+          TextSpan(
+            text: correctPrefix,
+            style: baseStyle?.copyWith(
+              color: Colors.green,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          if (errorChar.isNotEmpty)
+            TextSpan(
+              text: errorChar,
+              style: baseStyle?.copyWith(
+                color: Colors.red,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -1014,7 +1059,19 @@ class _MainScreenState extends State<MainScreen> {
                     opacity: (controller.phase == Phase.recall &&
                             !controller.wordVisible &&
                             controller.errorPosition >= 0 &&
-                            controller.hintVisible)
+                            controller.hintVisible &&
+                            controller.recallFirstWrongActive)
+                        ? 1
+                        : 0,
+                    child: _buildRecallFirstWrongOnly(controller),
+                  ),
+                  AnimatedOpacity(
+                    duration: const Duration(milliseconds: 250),
+                    opacity: (controller.phase == Phase.recall &&
+                            !controller.wordVisible &&
+                            controller.errorPosition >= 0 &&
+                            controller.hintVisible &&
+                            !controller.recallFirstWrongActive)
                         ? 1
                         : 0,
                     child: _buildRecallHiddenWordHint(controller),

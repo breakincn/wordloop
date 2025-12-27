@@ -29,12 +29,15 @@ class WordLoopController extends ChangeNotifier {
   Timer? _inputActionTimer;
   Timer? _blindAutoSubmitTimer;
   Timer? _previewHighlightTimer;
+  Timer? _recallFirstWrongTimer;
   bool _hintVisible = true;
   Function(String)? _onInputAction;
   int _errorPosition = -1;
   DateTime _lastRealtimeHintSpeakAt = DateTime.fromMillisecondsSinceEpoch(0);
   bool _previewPaused = false;
   int _previewHighlightCount = 0;
+  final Map<int, int> _recallWrongCountByPos = <int, int>{};
+  bool _recallFirstWrongActive = false;
 
   Phase get phase => _phase;
   int get index => _index;
@@ -43,6 +46,7 @@ class WordLoopController extends ChangeNotifier {
   String get hintText => _hintText;
   bool get hintVisible => _hintVisible;
   int get errorPosition => _errorPosition;
+  bool get recallFirstWrongActive => _recallFirstWrongActive;
   bool get previewPaused => _previewPaused;
   int get previewHighlightCount => _previewHighlightCount;
 
@@ -78,6 +82,9 @@ class WordLoopController extends ChangeNotifier {
     _blindAutoSubmitTimer?.cancel();
     _cancelTimer();
     _cancelPreviewHighlightTimer();
+    _cancelRecallFirstWrongTimer();
+    _recallWrongCountByPos.clear();
+    _recallFirstWrongActive = false;
     notifyListeners();
     _speakCurrent();
     _startPreviewHighlightIfNeeded();
@@ -88,6 +95,7 @@ class WordLoopController extends ChangeNotifier {
   void dispose() {
     _cancelTimer();
     _cancelPreviewHighlightTimer();
+    _cancelRecallFirstWrongTimer();
     _hintFadeTimer?.cancel();
     _inputActionTimer?.cancel();
     _blindAutoSubmitTimer?.cancel();
@@ -120,6 +128,9 @@ class WordLoopController extends ChangeNotifier {
     _hintText = '';
     _errorPosition = -1;
     _inputActionTimer?.cancel();
+    _cancelRecallFirstWrongTimer();
+    _recallWrongCountByPos.clear();
+    _recallFirstWrongActive = false;
     _blindAutoSubmitTimer?.cancel();
 
     if (_phase == Phase.preview) {
@@ -260,6 +271,10 @@ class WordLoopController extends ChangeNotifier {
       // 输入正确，不显示提示
       _hintText = '';
       _errorPosition = -1;
+      if (_phase == Phase.recall) {
+        _recallFirstWrongActive = false;
+        _cancelRecallFirstWrongTimer();
+      }
       _inputActionTimer?.cancel();
       
       // 盲打阶段：输入到单词长度后2秒自动提交
@@ -271,6 +286,40 @@ class WordLoopController extends ChangeNotifier {
     } else {
       // 输入错误，找到错误位置
       _errorPosition = _findErrorPosition(userInput, targetWord);
+      if (_phase == Phase.recall) {
+        final pos = _errorPosition;
+        final nextCount = (_recallWrongCountByPos[pos] ?? 0) + 1;
+        _recallWrongCountByPos[pos] = nextCount;
+
+        if (nextCount == 1) {
+          // 第一次在该字母位置出错：只标红当前字母，1秒后回退一位让用户重输
+          _recallFirstWrongActive = true;
+          _hintText = '';
+          _hintFadeTimer?.cancel();
+          _hintVisible = true;
+          _cancelRecallFirstWrongTimer();
+          _recallFirstWrongTimer = Timer(const Duration(seconds: 1), () {
+            if (_phase != Phase.recall) return;
+            if (_recallFirstWrongActive != true) return;
+
+            final current = input.trim();
+            final newText = current.isEmpty ? '' : current.substring(0, current.length - 1);
+            _recallFirstWrongActive = false;
+            _errorPosition = -1;
+            _hintVisible = false;
+            notifyListeners();
+            _onInputAction?.call(newText);
+          });
+          notifyListeners();
+          return;
+        }
+
+        // 第二次及以上同位置出错：走现有整词提示逻辑
+        _recallFirstWrongActive = false;
+        _cancelRecallFirstWrongTimer();
+        _recallWrongCountByPos.remove(pos);
+      }
+
       _hintText = _buildRealtimeHint(word: word, userInput: trimmed);
       _scheduleHintFadeOut();
       _scheduleInputAction(trimmed, word.word);
@@ -280,6 +329,11 @@ class WordLoopController extends ChangeNotifier {
       _blindAutoSubmitTimer?.cancel();
     }
     notifyListeners();
+  }
+
+  void _cancelRecallFirstWrongTimer() {
+    _recallFirstWrongTimer?.cancel();
+    _recallFirstWrongTimer = null;
   }
 
   void _speakRealtimeHintIfNeeded() {
@@ -515,6 +569,9 @@ class WordLoopController extends ChangeNotifier {
 
   void _enterRecallForCurrent() {
     _cancelTimer();
+    _cancelRecallFirstWrongTimer();
+    _recallWrongCountByPos.clear();
+    _recallFirstWrongActive = false;
     _wordVisible = true;
     notifyListeners();
 
