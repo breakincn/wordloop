@@ -29,6 +29,7 @@ class WordLoopController extends ChangeNotifier {
   Timer? _inputActionTimer;
   Timer? _blindWordHintTimer;
   Timer? _blindAutoSubmitTimer;
+  Timer? _previewHighlightTimer;
   bool _hintVisible = true;
   Function(String)? _onInputAction;
   int _errorPosition = -1;
@@ -38,6 +39,8 @@ class WordLoopController extends ChangeNotifier {
   bool _blindRevealHintOnNextInput = false;
   int _blindLastInputLength = 0;
   int _blindHintTriggerCount = 0;
+  bool _previewPaused = false;
+  int _previewHighlightCount = 0;
 
   Phase get phase => _phase;
   int get index => _index;
@@ -47,6 +50,8 @@ class WordLoopController extends ChangeNotifier {
   bool get hintVisible => _hintVisible;
   int get errorPosition => _errorPosition;
   bool get blindWordHintVisible => _blindWordHintVisible;
+  bool get previewPaused => _previewPaused;
+  int get previewHighlightCount => _previewHighlightCount;
 
   List<Word> get wrongWords => List<Word>.unmodifiable(_wrongWords);
 
@@ -75,6 +80,8 @@ class WordLoopController extends ChangeNotifier {
     _phaseLoopCount = 0;
     _hintText = '';
     _wordVisible = true;
+    _previewPaused = false;
+    _previewHighlightCount = 0;
     _blindFullWrongStreak = 0;
     _blindWordHintVisible = false;
     _blindRevealHintOnNextInput = false;
@@ -83,20 +90,44 @@ class WordLoopController extends ChangeNotifier {
     _blindWordHintTimer?.cancel();
     _blindAutoSubmitTimer?.cancel();
     _cancelTimer();
+    _cancelPreviewHighlightTimer();
     notifyListeners();
     _speakCurrent();
+    _startPreviewHighlightIfNeeded();
     _scheduleAutoAdvanceIfNeeded();
   }
 
   @override
   void dispose() {
     _cancelTimer();
+    _cancelPreviewHighlightTimer();
     _hintFadeTimer?.cancel();
     _inputActionTimer?.cancel();
     _blindWordHintTimer?.cancel();
     _blindAutoSubmitTimer?.cancel();
     unawaited(_ttsService.dispose());
     super.dispose();
+  }
+
+  Future<void> pausePreview() async {
+    if (_phase != Phase.preview) return;
+    if (_previewPaused) return;
+    _previewPaused = true;
+    _cancelTimer();
+    _cancelPreviewHighlightTimer();
+    notifyListeners();
+    await _ttsService.stop();
+  }
+
+  void resumePreview() {
+    if (_phase != Phase.preview) return;
+    if (!_previewPaused) return;
+    _previewPaused = false;
+    _previewHighlightCount = 0;
+    notifyListeners();
+    _speakCurrent();
+    _startPreviewHighlightIfNeeded();
+    _scheduleAutoAdvanceIfNeeded();
   }
 
   void next() {
@@ -112,6 +143,9 @@ class WordLoopController extends ChangeNotifier {
     _blindAutoSubmitTimer?.cancel();
 
     if (_phase == Phase.preview) {
+      _previewPaused = false;
+      _previewHighlightCount = 0;
+      _cancelPreviewHighlightTimer();
       _advanceWithinPhaseOrTransition();
       return;
     }
@@ -429,6 +463,7 @@ class WordLoopController extends ChangeNotifier {
       if (_phase != Phase.recall) {
         _speakCurrent();
       }
+      _startPreviewHighlightIfNeeded();
       _scheduleAutoAdvanceIfNeeded();
       if (_phase == Phase.recall) {
         _enterRecallForCurrent();
@@ -441,6 +476,7 @@ class WordLoopController extends ChangeNotifier {
 
   void _transitionPhase() {
     _cancelTimer();
+    _cancelPreviewHighlightTimer();
     _index = 0;
     _hintText = '';
     _wordVisible = true;
@@ -492,13 +528,64 @@ class WordLoopController extends ChangeNotifier {
     } else {
       _speakCurrent();
     }
+    _startPreviewHighlightIfNeeded();
     _scheduleAutoAdvanceIfNeeded();
   }
 
   void _scheduleAutoAdvanceIfNeeded() {
     if (_phase != Phase.preview) return;
-    final delay = Duration(milliseconds: (1500 + 200 * currentWord.length));
-    _timer = Timer(delay, _advanceWithinPhaseOrTransition);
+    if (_previewPaused) return;
+    final w = currentWord.word;
+    final len = w.length;
+    final totalMs = 1500 + 200 * len;
+    const holdAllGreenMs = 300;
+    final preAdvanceMs = (totalMs - holdAllGreenMs).clamp(0, totalMs);
+
+    _timer = Timer(Duration(milliseconds: preAdvanceMs), () {
+      if (_phase != Phase.preview || _previewPaused) return;
+      if (len > 0) {
+        _previewHighlightCount = len;
+        notifyListeners();
+      }
+      _timer = Timer(const Duration(milliseconds: holdAllGreenMs), () {
+        if (_phase != Phase.preview || _previewPaused) return;
+        _advanceWithinPhaseOrTransition();
+      });
+    });
+  }
+
+  void _startPreviewHighlightIfNeeded() {
+    if (_phase != Phase.preview) return;
+    if (_previewPaused) return;
+    final w = currentWord.word;
+    if (w.isEmpty) return;
+
+    _cancelPreviewHighlightTimer();
+    _previewHighlightCount = 0;
+    notifyListeners();
+
+    final len = w.length;
+    final autoMs = 1500 + 200 * len;
+    final holdAllGreenMs = 300;
+    final perLetter = ((autoMs - holdAllGreenMs) / len).floor().clamp(80, 500);
+
+    _previewHighlightTimer = Timer.periodic(Duration(milliseconds: perLetter), (t) {
+      if (_phase != Phase.preview || _previewPaused) {
+        t.cancel();
+        return;
+      }
+      if (_previewHighlightCount >= len) {
+        t.cancel();
+        return;
+      }
+      _previewHighlightCount += 1;
+      notifyListeners();
+    });
+  }
+
+  void _cancelPreviewHighlightTimer() {
+    _previewHighlightTimer?.cancel();
+    _previewHighlightTimer = null;
   }
 
   void _enterRecallForCurrent() {

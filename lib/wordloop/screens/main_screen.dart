@@ -72,6 +72,26 @@ class _MainScreenState extends State<MainScreen> {
   bool _lastHintVisible = false;
   bool _recallHadErrorWhileHintVisible = false;
 
+  Widget _buildPreviewWordProgressText({required String targetWord, required TextStyle? style, required int highlightCount}) {
+    final baseStyle = style ?? const TextStyle();
+    final clamped = highlightCount.clamp(0, targetWord.length);
+    final greenPrefix = targetWord.substring(0, clamped);
+    final rest = targetWord.substring(clamped);
+
+    return RichText(
+      text: TextSpan(
+        children: [
+          if (greenPrefix.isNotEmpty)
+            TextSpan(
+              text: greenPrefix,
+              style: baseStyle.copyWith(color: Colors.green, fontWeight: FontWeight.bold),
+            ),
+          if (rest.isNotEmpty) TextSpan(text: rest, style: baseStyle),
+        ],
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -898,10 +918,16 @@ class _MainScreenState extends State<MainScreen> {
                             targetWord: word.word,
                             style: Theme.of(context).textTheme.displaySmall,
                           )
-                        : _buildWordProgressText(
-                            targetWord: word.word,
-                            style: Theme.of(context).textTheme.displaySmall,
-                          ),
+                        : (controller.phase == Phase.preview
+                            ? _buildPreviewWordProgressText(
+                                targetWord: word.word,
+                                style: Theme.of(context).textTheme.displaySmall,
+                                highlightCount: controller.previewHighlightCount,
+                              )
+                            : _buildWordProgressText(
+                                targetWord: word.word,
+                                style: Theme.of(context).textTheme.displaySmall,
+                              )),
                   ),
                   AnimatedOpacity(
                     duration: const Duration(milliseconds: 250),
@@ -959,6 +985,22 @@ class _MainScreenState extends State<MainScreen> {
                   word.meaning,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
+              if (controller.phase == Phase.preview) ...[
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () async {
+                      if (controller.previewPaused) {
+                        controller.resumePreview();
+                      } else {
+                        await controller.pausePreview();
+                      }
+                    },
+                    child: Text(controller.previewPaused ? '继续' : '暂停'),
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
             ],
             if (controller.phase != Phase.completion) ...[
