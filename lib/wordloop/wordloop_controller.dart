@@ -244,6 +244,10 @@ class WordLoopController extends ChangeNotifier {
     await _ttsService.speak(currentWord.word);
   }
 
+  Future<void> playLetter(String letter) async {
+    await _ttsService.speak(letter);
+  }
+
   void setInputActionCallback(Function(String) callback) {
     _onInputAction = callback;
   }

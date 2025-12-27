@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:math';
@@ -219,6 +220,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _onPickLetter(WordLoopController controller, _LetterToken token) {
+    unawaited(controller.playLetter(token.ch));
     if (controller.phase == Phase.spellingInput) {
       final targetWord = controller.currentWord.word;
       _ensureSpellingState(targetWord);
