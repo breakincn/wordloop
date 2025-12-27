@@ -206,7 +206,7 @@ class WordLoopController extends ChangeNotifier {
       _hintText = '正确';
       _wordVisible = true;
       notifyListeners();
-      await Future<void>.delayed(const Duration(milliseconds: 250));
+      await Future<void>.delayed(const Duration(milliseconds: 1500)); // 延迟1.5秒显示正确提示
       _advanceWithinPhaseOrTransition();
       return;
     }
