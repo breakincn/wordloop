@@ -131,7 +131,7 @@ class _MainScreenState extends State<MainScreen> {
             TextSpan(
               text: errorChar,
               style: baseStyle?.copyWith(
-                color: Colors.red,
+                color: Colors.blue,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -788,7 +788,7 @@ class _MainScreenState extends State<MainScreen> {
     final remainingPart = correctPrefixLength + 1 < targetWord.length ? targetWord.substring(correctPrefixLength + 1) : '';
 
     final baseStyle = Theme.of(context).textTheme.displaySmall;
-    final remainingColor = (controller.phase == Phase.recall || controller.phase == Phase.wrongReview) ? Colors.blue : Colors.green;
+    final remainingColor = (controller.phase == Phase.recall || controller.phase == Phase.wrongReview) ? Colors.black26 : Colors.green;
     return RichText(
       text: TextSpan(
         children: [
@@ -803,7 +803,7 @@ class _MainScreenState extends State<MainScreen> {
             TextSpan(
               text: errorChar,
               style: baseStyle?.copyWith(
-                color: Colors.red,
+                color: Colors.blue,
                 fontWeight: FontWeight.bold,
               ),
             ),
