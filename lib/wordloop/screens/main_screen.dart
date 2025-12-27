@@ -174,8 +174,8 @@ class _MainScreenState extends State<MainScreen> {
 
       spans.add(
         TextSpan(
-          text: '_',
-          style: baseStyle.copyWith(color: Colors.black26, fontWeight: FontWeight.bold),
+          text: ' ',
+          style: baseStyle.copyWith(color: Colors.transparent, fontWeight: FontWeight.bold),
         ),
       );
     }
