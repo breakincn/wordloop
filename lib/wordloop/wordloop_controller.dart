@@ -162,7 +162,6 @@ class WordLoopController extends ChangeNotifier {
         _blindLastInputLength = 0;
         _blindHintTriggerCount = 0;
         _blindWordHintTimer?.cancel();
-        _onInputAction?.call('clear');
       }
       if (word.inWrongList) {
         word.inWrongList = false;
