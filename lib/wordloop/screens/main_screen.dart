@@ -931,19 +931,8 @@ class _MainScreenState extends State<MainScreen> {
                   ),
                   AnimatedOpacity(
                     duration: const Duration(milliseconds: 250),
-                    opacity: (controller.phase == Phase.blindTest && !controller.blindWordHintVisible) ? 1 : 0,
+                    opacity: controller.phase == Phase.blindTest ? 1 : 0,
                     child: _buildBlindWordStatusText(targetWord: word.word, style: Theme.of(context).textTheme.displaySmall),
-                  ),
-                  AnimatedOpacity(
-                    duration: const Duration(milliseconds: 500),
-                    opacity: (controller.phase == Phase.blindTest && controller.blindWordHintVisible) ? 1 : 0,
-                    child: Text(
-                      word.word,
-                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                        color: Colors.blue,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
                   ),
                   AnimatedOpacity(
                     duration: const Duration(milliseconds: 120),

@@ -27,18 +27,12 @@ class WordLoopController extends ChangeNotifier {
   Timer? _timer;
   Timer? _hintFadeTimer;
   Timer? _inputActionTimer;
-  Timer? _blindWordHintTimer;
   Timer? _blindAutoSubmitTimer;
   Timer? _previewHighlightTimer;
   bool _hintVisible = true;
   Function(String)? _onInputAction;
   int _errorPosition = -1;
   DateTime _lastRealtimeHintSpeakAt = DateTime.fromMillisecondsSinceEpoch(0);
-  int _blindFullWrongStreak = 0;
-  bool _blindWordHintVisible = false;
-  bool _blindRevealHintOnNextInput = false;
-  int _blindLastInputLength = 0;
-  int _blindHintTriggerCount = 0;
   bool _previewPaused = false;
   int _previewHighlightCount = 0;
 
@@ -49,7 +43,6 @@ class WordLoopController extends ChangeNotifier {
   String get hintText => _hintText;
   bool get hintVisible => _hintVisible;
   int get errorPosition => _errorPosition;
-  bool get blindWordHintVisible => _blindWordHintVisible;
   bool get previewPaused => _previewPaused;
   int get previewHighlightCount => _previewHighlightCount;
 
@@ -82,12 +75,6 @@ class WordLoopController extends ChangeNotifier {
     _wordVisible = true;
     _previewPaused = false;
     _previewHighlightCount = 0;
-    _blindFullWrongStreak = 0;
-    _blindWordHintVisible = false;
-    _blindRevealHintOnNextInput = false;
-    _blindLastInputLength = 0;
-    _blindHintTriggerCount = 0;
-    _blindWordHintTimer?.cancel();
     _blindAutoSubmitTimer?.cancel();
     _cancelTimer();
     _cancelPreviewHighlightTimer();
@@ -103,7 +90,6 @@ class WordLoopController extends ChangeNotifier {
     _cancelPreviewHighlightTimer();
     _hintFadeTimer?.cancel();
     _inputActionTimer?.cancel();
-    _blindWordHintTimer?.cancel();
     _blindAutoSubmitTimer?.cancel();
     unawaited(_ttsService.dispose());
     super.dispose();
@@ -134,12 +120,6 @@ class WordLoopController extends ChangeNotifier {
     _hintText = '';
     _errorPosition = -1;
     _inputActionTimer?.cancel();
-    _blindFullWrongStreak = 0;
-    _blindWordHintVisible = false;
-    _blindRevealHintOnNextInput = false;
-    _blindLastInputLength = 0;
-    _blindHintTriggerCount = 0;
-    _blindWordHintTimer?.cancel();
     _blindAutoSubmitTimer?.cancel();
 
     if (_phase == Phase.preview) {
@@ -191,14 +171,6 @@ class WordLoopController extends ChangeNotifier {
 
     final correct = trimmed.toLowerCase() == word.word.toLowerCase();
     if (correct) {
-      if (_phase == Phase.blindTest) {
-        _blindFullWrongStreak = 0;
-        _blindWordHintVisible = false;
-        _blindRevealHintOnNextInput = false;
-        _blindLastInputLength = 0;
-        _blindHintTriggerCount = 0;
-        _blindWordHintTimer?.cancel();
-      }
       if (word.inWrongList) {
         word.inWrongList = false;
         _wrongWords.removeWhere((w) => w.id == word.id);
@@ -216,15 +188,6 @@ class WordLoopController extends ChangeNotifier {
       _addWrong(word);
     }
 
-    if (_phase == Phase.blindTest) {
-      _blindFullWrongStreak += 1;
-      if (_blindFullWrongStreak >= 2) {
-        _blindRevealHintOnNextInput = true;
-      }
-      _blindLastInputLength = 0;
-      _onInputAction?.call('clear');
-    }
-
     _hintText = _buildHint(word: word, errorCount: word.errorCount, phase: _phase);
 
     if (_phase == Phase.recall && word.errorCount >= 3) {
@@ -236,33 +199,6 @@ class WordLoopController extends ChangeNotifier {
     }
 
     notifyListeners();
-  }
-
-  void _showBlindWordHint() {
-    _blindWordHintTimer?.cancel();
-    _blindWordHintVisible = true;
-    _blindHintTriggerCount += 1;
-    
-    // 播放读音
-    unawaited(_ttsService.speak(currentWord.word));
-    
-    notifyListeners();
-
-    // 检查是否已触发3次，如果是则加入错词表并进入下一词
-    if (_blindHintTriggerCount >= 3) {
-      _addWrong(currentWord);
-      _blindWordHintTimer = Timer(const Duration(milliseconds: 1500), () {
-        _blindWordHintVisible = false;
-        next();
-      });
-      return;
-    }
-
-    // 0.5秒淡入；1.5秒后触发淡出隐藏
-    _blindWordHintTimer = Timer(const Duration(milliseconds: 1500), () {
-      _blindWordHintVisible = false;
-      notifyListeners();
-    });
   }
 
   void _scheduleBlindAutoSubmit(String input) {
@@ -291,27 +227,16 @@ class WordLoopController extends ChangeNotifier {
     if (_phase == Phase.blindTest) {
       if (trimmed.isEmpty) {
         _blindAutoSubmitTimer?.cancel();
-        _blindLastInputLength = 0;
         notifyListeners();
         return;
       }
 
       final word = currentWord;
-      if (_blindRevealHintOnNextInput && _blindLastInputLength == 0) {
-        _blindRevealHintOnNextInput = false;
-        _blindFullWrongStreak = 0;
-        _showBlindWordHint();
-        // 提示触发时清空输入框
-        _onInputAction?.call('clear');
-      }
-
       if (trimmed.length >= word.word.length) {
         _scheduleBlindAutoSubmit(trimmed);
       } else {
         _blindAutoSubmitTimer?.cancel();
       }
-
-      _blindLastInputLength = trimmed.length;
       notifyListeners();
       return;
     }
